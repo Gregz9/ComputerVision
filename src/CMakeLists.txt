@@ -2,20 +2,22 @@ cmake_minimum_required(VERSION 3.10.0)
 
 project(structure_from_motion)
 
-set(exe_name sfm)
+set(exe_name main)
 
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 
 find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(Catch2 3 REQUIRED)
 
 if (NOT OpenCV_LIBS)
   set(OpenCV_LIBS "opencv::opencv")
 endif()
 
-add_exectuable(${exe_name}
+add_executable(${exe_name}
+  main.cpp
   sift.cc
-  filter.cc
+  filters.cc
   )
 
 target_link_libraries(${exe_name}
