@@ -8,7 +8,7 @@
 #include <opencv2/opencv.hpp>
 #include <stdlib.h>
 
-constexpr int NUM_OCT = 5; 
+constexpr int NUM_OCT = 8;
 constexpr int NUM_SCL_PER_OCT = 3; 
 constexpr float MIN_SIGMA = 0.8; // Minimal blur level
 constexpr float INP_SIGMA = 0.5; // Assumed blur level of input image
@@ -20,15 +20,23 @@ constexpr float MAX_REF_THR = 0.5;
 constexpr float DOG_THR = 0.015;
 constexpr float EDGE_THR = 0.f;
 
-struct GaussianPyramid{
+struct Pyramid{
   int num_oct = NUM_OCT;
   int num_scales_per_oct;
   std::vector<cv::Mat> imgs{}; 
 };
 
+struct DoGPyramid{
+    int num_oct = NUM_OCT;
+    int num_scales_per_oct;
+    std::vector<cv::Mat> imgs{};
+};
+
 void computeDogThr();
 
-GaussianPyramid computeGaussianPyramid(cv::Mat img);
+Pyramid computeGaussianPyramid(const cv::Mat img);
+
+Pyramid computeDoGPyramid(const Pyramid pyramid);
 
 void bilinearInterpolation(); 
 

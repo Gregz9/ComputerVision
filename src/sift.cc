@@ -1,7 +1,7 @@
 #include "sift.h"
 #include "filters.h"
 
-GaussianPyramid computeGaussianPyramid(cv::Mat img){
+Pyramid computeGaussianPyramid(cv::Mat img){
   cv::resize(img, img, cv::Size(img.rows*2, img.cols*2), cv::INTER_LINEAR);
   // Computing the standard deviation of the gaussian kernel
   // For the very first image, init_sigma is equivalent to: 
@@ -16,7 +16,7 @@ GaussianPyramid computeGaussianPyramid(cv::Mat img){
   auto k = static_cast<float>(std::pow(2, 1.0/num_scales));
 
   std::vector<float> std_devs {std_dev};
-  GaussianPyramid pyramid;
+  Pyramid pyramid;
   pyramid.num_scales_per_oct = num_scales;
 
   // Computing standard deviations
@@ -27,10 +27,10 @@ GaussianPyramid computeGaussianPyramid(cv::Mat img){
   }
 
   pyramid.imgs.reserve(num_scales*NUM_OCT);
-  for (int i=0; i<NUM_OCT; i++){
+  for (int i=0; i<NUM_OCT; ++i){
     pyramid.imgs.push_back(img.clone());
 
-    for(int j=1; j < (int)std_devs.size();j++){
+    for(int j=1; j < (int)std_devs.size(); ++j){
       const cv::Mat& scale_img = pyramid.imgs.at(i*num_scales);
       cv::sepFilter2D(scale_img, scale_img, -1, std_devs[j], std_devs[j]);
       pyramid.imgs.push_back(scale_img.clone());
@@ -40,4 +40,20 @@ GaussianPyramid computeGaussianPyramid(cv::Mat img){
 
   }
 return pyramid;
+}
+
+Pyramid computeDogPyramid(const Pyramid gauss) {
+
+    Pyramid dog;
+    dog.num_scales_per_oct = gauss.num_scales_per_oct - 1;
+    dog.imgs.reserve(dog.num_scales_per_oct*dog.num_oct);
+
+    for(int o = 0; o < dog.num_oct; ++o) {
+        for(int s = 1; s < gauss.num_scales_per_oct; ++s) {
+            cv::Mat diff_img = gauss.imgs.at((o*gauss.num_scales_per_oct)+s) -
+                    gauss.imgs.at((o*gauss.num_scales_per_oct)+s-1);
+            dog.imgs.push_back(diff_img);
+            }
+        }
+    return dog;
 }

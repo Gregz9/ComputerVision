@@ -7,27 +7,27 @@
 
 int main(int argc, char** argv)
 {
-    cv::Mat img = cv::imread("../IMG_2781.jpg", cv::IMREAD_GRAYSCALE);
-    cv::resize(img, img, cv::Size(200,200));
+    cv::Mat img = cv::imread("../book_in_scene.jpg", cv::IMREAD_GRAYSCALE);
+    //cv::resize(img, img, cv::Size(200,200));
     cv::Mat grayMat, colorMat;
 
-    std::cout << img.size << std::endl;
-    GaussianPyramid pyramid = computeGaussianPyramid(img);
+    /*Pyramid pyramid = computeGaussianPyramid(img);
 
     std::cout << pyramid.imgs.size() << std::endl;
+    std::cout << pyramid.num_oct << std::endl;
 
     cv::Mat image1 = img;
     cv::Mat image2 = pyramid.imgs.at(11);
     cv::Mat image3 = pyramid.imgs.at(17);
     cv::Mat image4 = pyramid.imgs.at(23);
     cv::Mat image5 = pyramid.imgs.at(29);
-    //cv::Mat image6 = pyramid.imgs.at(29);
+    cv::Mat image6 = pyramid.imgs.at(47);
 
     cv::normalize(image2, image2, 0, 255, cv::NORM_MINMAX);
     cv::normalize(image3, image3, 0, 255, cv::NORM_MINMAX);
     cv::normalize(image4, image4, 0, 255, cv::NORM_MINMAX);
     cv::normalize(image5, image5, 0, 255, cv::NORM_MINMAX);
-    //cv::normalize(image6, image6, 0, 255, cv::NORM_MINMAX);
+    cv::normalize(image6, image6, 0, 255, cv::NORM_MINMAX);
 
     // Check if images are loaded successfully
     if (image1.empty() || image2.empty() || image3.empty() || image4.empty() || image5.empty()) {
@@ -44,7 +44,7 @@ int main(int argc, char** argv)
     cv::resize(image3, image3, commonSize);
     cv::resize(image4, image4, commonSize);
     cv::resize(image5, image5, commonSize);
-    //cv::resize(image6, image6, commonSize);
+    cv::resize(image6, image6, commonSize);
 
     // Create a window to display the grid of images
     cv::namedWindow("Grid of Images", cv::WINDOW_NORMAL);
@@ -58,13 +58,17 @@ int main(int argc, char** argv)
     image3.copyTo(gridImage(cv::Rect(commonSize.width * 2 + 10, 0, commonSize.width, commonSize.height)));
     image4.copyTo(gridImage(cv::Rect(0, commonSize.height + 5, commonSize.width, commonSize.height)));
     image5.copyTo(gridImage(cv::Rect(commonSize.width + 5, commonSize.height + 5, commonSize.width, commonSize.height)));
-    //image6.copyTo(gridImage(cv::Rect(commonSize.width * 2 + 10, commonSize.height + 5, commonSize.width, commonSize.height)));
+    image6.copyTo(gridImage(cv::Rect(commonSize.width * 2 + 10, commonSize.height + 5, commonSize.width, commonSize.height)));
     // Display the grid of images
     cv::imshow("Grid of Images", gridImage);
 
     // Wait for a key press
-    cv::waitKey(0);
+    cv::waitKey(0);*/
 
+    cv::Mat some_nums(3,3, CV_32FC1);
+    cv::randu(some_nums, 0, 255);
 
+    std::cout << some_nums.at<float>(2,0) << std::endl;
+    std::cout << some_nums.at<float>(6) << std::endl;
     return 0;
 }
