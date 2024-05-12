@@ -17,8 +17,8 @@ constexpr float PX_DST_MIN = 0.5;
 
 constexpr int MAX_ITERS_REF = 5;
 constexpr float MAX_REF_THR = 0.5; 
-constexpr float DOG_THR = 0.015;
-constexpr float EDGE_THR = 0.f;
+constexpr float DOG_THR = 0.015f;
+constexpr float EDGE_THR = 10.f;
 
 struct Pyramid{
   int num_oct = NUM_OCT;
@@ -26,21 +26,24 @@ struct Pyramid{
   std::vector<cv::Mat> imgs{}; 
 };
 
-struct DoGPyramid{
-    int num_oct = NUM_OCT;
-    int num_scales_per_oct;
-    std::vector<cv::Mat> imgs{};
-};
+struct KeyPoint {
+    int m;
+    int n;
+    int octave;
+    int scale;
 
+    int x = 0;
+    int y = 0;
+    float sigma = 0.f; //blur level
+    float omega = 0.f; //intensity of the extremum
+};
 void computeDogThr();
+
+typedef std::vector<KeyPoint> keypoints;
 
 Pyramid computeGaussianPyramid(const cv::Mat img);
 
 Pyramid computeDoGPyramid(const Pyramid pyramid);
 
-void bilinearInterpolation(); 
-
-void createGuassKernel(float std_dev, int radius); 
-
-void create1DDerivateGaussianKernel(float sigma, int radius);
+keypoints locateExtrema(const Pyramid dog, float C_dog = DOG_THR, float C_edge = EDGE_THR);
 

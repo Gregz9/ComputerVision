@@ -26,33 +26,29 @@ int main(int argc, char** argv)
     cv::Mat img = cv::imread("../book_in_scene.jpg", cv::IMREAD_GRAYSCALE);
     //cv::resize(img, img, cv::Size(200,200));
     cv::Mat grayMat, colorMat;
+    // Remember that the image has to be converted to float values
+
     img.convertTo(img, CV_32F);
-    //cv::normalize(img, img, 0, 1, cv::NORM_MINMAX);
+    img /= 255.;
 
 
     Pyramid pyramid = computeGaussianPyramid(img);
+    std::cout << "\n" << std::endl;
     Pyramid DoG = computeDoGPyramid(pyramid);
+    keypoints k_points = locateExtrema(DoG);
+
+    std::cout << k_points.size() << std::endl;
 
     std::cout << pyramid.imgs.size() << std::endl;
     std::cout << pyramid.num_oct << std::endl;
 
-    cv::Mat image1 = computeAbsolute(DoG.imgs.at(0));
-    cv::Mat image2 = computeAbsolute(DoG.imgs.at(1));
-    cv::Mat image3 = computeAbsolute(DoG.imgs.at(15));
-    cv::Mat image4 = computeAbsolute(DoG.imgs.at(20));
-    cv::Mat image5 = computeAbsolute(DoG.imgs.at(25));
-    cv::Mat image6 = computeAbsolute(DoG.imgs.at(30));
-    for (size_t i = 0; i < DoG.imgs.size(); ++i) {
-        cv::Mat current_img = DoG.imgs[i];
-        cv::Scalar mean_val = cv::mean(current_img);
-        std::cout << "Mean pixel value of image " << i << ": " << mean_val[0] << std::endl;
-    }
-    cv::normalize(image1, image1, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(image2, image2, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(image3, image3, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(image4, image4, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(image5, image5, 0, 1, cv::NORM_MINMAX);
-    cv::normalize(image6, image6, 0, 1, cv::NORM_MINMAX);
+    cv::Mat image1 = (DoG.imgs.at(0));
+    cv::Mat image2 = (DoG.imgs.at(7));
+    cv::Mat image3 = (DoG.imgs.at(14));
+    cv::Mat image4 = (DoG.imgs.at(21));
+    cv::Mat image5 = (DoG.imgs.at(28));
+    cv::Mat image6 = (DoG.imgs.at(35));
+
 
     // Check if images are loaded successfully
     if (image1.empty() || image2.empty() || image3.empty() || image4.empty() || image5.empty()) {
