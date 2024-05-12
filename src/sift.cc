@@ -27,33 +27,36 @@ Pyramid computeGaussianPyramid(cv::Mat img){
   }
 
   pyramid.imgs.reserve(num_scales*NUM_OCT);
-  for (int i=0; i<NUM_OCT; ++i){
+  for (int i=0; i<NUM_OCT; i++){
     pyramid.imgs.push_back(img.clone());
 
-    for(int j=1; j < (int)std_devs.size(); ++j){
-      const cv::Mat& scale_img = pyramid.imgs.at(i*num_scales);
+    for(int j=1; j < (int)std_devs.size(); j++){
+      cv::Mat scale_img = pyramid.imgs.at(i*num_scales);
       cv::sepFilter2D(scale_img, scale_img, -1, std_devs[j], std_devs[j]);
       pyramid.imgs.push_back(scale_img.clone());
     }
-    const cv::Mat& next_img = pyramid.imgs.at((i*num_scales)+NUM_SCL_PER_OCT);
+    cv::Mat next_img = pyramid.imgs.at((i*num_scales)+NUM_SCL_PER_OCT);
     cv::resize(next_img, img, cv::Size(img.rows/2, img.cols/2), cv::INTER_LINEAR);
 
   }
 return pyramid;
 }
 
-Pyramid computeDogPyramid(const Pyramid gauss) {
+Pyramid computeDoGPyramid(const Pyramid gauss) {
 
     Pyramid dog;
     dog.num_scales_per_oct = gauss.num_scales_per_oct - 1;
     dog.imgs.reserve(dog.num_scales_per_oct*dog.num_oct);
 
-    for(int o = 0; o < dog.num_oct; ++o) {
-        for(int s = 1; s < gauss.num_scales_per_oct; ++s) {
-            cv::Mat diff_img = gauss.imgs.at((o*gauss.num_scales_per_oct)+s) -
-                    gauss.imgs.at((o*gauss.num_scales_per_oct)+s-1);
+    for (int o = 0; o < dog.num_oct; ++o) {
+        for (int s = 0; s < gauss.num_scales_per_oct - 1; ++s) { // Start from s = 0
+            cv::Mat diff_img;
+            cv::subtract(gauss.imgs[o * gauss.num_scales_per_oct + s + 1].clone(),
+                         gauss.imgs[o * gauss.num_scales_per_oct + s].clone(),
+                         diff_img);
+
             dog.imgs.push_back(diff_img);
-            }
         }
+    }
     return dog;
 }
