@@ -1,6 +1,6 @@
 #include "sift.h"
 #include "filters.h"
-#include <cmath>
+
 Pyramid computeGaussianPyramid(cv::Mat img){
     cv::resize(img, img, cv::Size(img.rows*2, img.cols*2), cv::INTER_LINEAR);
     // Computing the standard deviation of the gaussian kernel
@@ -100,9 +100,71 @@ keypoints locateExtrema(const Pyramid dog, float C_dog, float C_edge) {
                         KeyPoint k = {i, j, o, s};
                         k_points.push_back(k);
                     }
+
+                    // Refinement could be done here, i.e. keypoint interpolation
                 }
             }
         }
     }
     return k_points;
+}
+
+keypoints keypointRefinement(const Pyramid DoG, keypoints k_points) {
+
+    for(int i = 0; i < (int)k_points.size(); ++i) {
+        KeyPoint k = k_points.at(i);
+        for(int t = 0; t < MAX_INTER_ITERS; ++t) {
+            // Quadratic interpolation
+            cv::Vec3f alfas = quadraticInterpolation(DoG, k);
+            k.scale += static_cast<int>(round(alfas[0]));
+            k.m += static_cast<int>(round(alfas[1]));
+            k.n += static_cast<int>(round(alfas[2]));
+
+
+        }
+    }
+    return k_points;
+}
+
+cv::Vec3f quadraticInterpolation(KeyPoint k, Pyramid DoG) {
+
+    cv::Vec3f alfa_vals;
+    cv::Mat img_prev = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale-1];
+    cv::Mat img_curr = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale];
+    cv::Mat img_next = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale+1];
+
+    float g1, g2, g3, h11, h12, h13, h22, h23, h33;
+
+    g1 = 0.5f*(img_next.at<float>(k.m, k.n) - img_prev.at<float>(k.m,k.n));
+    g2 = 0.5f*(img_curr.at<float>(k.m+1, k.n) - img_curr.at<float>(k.m-1,k.n));
+    g3 = 0.5f*(img_curr.at<float>(k.m, k.n+1) - img_curr.at<float>(k.m,k.n-1));
+
+    h11 = img_next.at<float>(k.m, k.n) + img_prev.at<float>(k.m, k.n) - 2*img_curr.at<float>(k.m, k.n);
+    h22 = img_curr.at<float>(k.m+1, k.n) + img_curr.at<float>(k.m-1, k.n) - 2*img_curr.at<float>(k.m, k.n);
+    h33 = img_curr.at<float>(k.m, k.n+1) + img_curr.at<float>(k.m, k.n-1) - 2*img_curr.at<float>(k.m, k.n);
+    h12 = 0.25f*(img_next.at<float>(k.m+1, k.n) - img_next.at<float>(k.m-1, k.n) - img_prev.at<float>(k.m+1, k.n) + img_prev.at<float>(k.m-1, k.n));
+    h13 = 0.25f*(img_next.at<float>(k.m, k.n+1) - img_next.at<float>(k.m, k.n-1) - img_prev.at<float>(k.m, k.n+1) + img_prev.at<float>(k.m, k.n-1));
+    h23 = 0.25f*(img_curr.at<float>(k.m+1, k.n+1) - img_curr.at<float>(k.m+1, k.n-1) - img_curr.at<float>(k.m-1, k.n+1) + img_curr.at<float>(k.m-1, k.n-1));
+
+    // Computation of the inverse of the Hessian matrix following the cofactor method
+    float h11_inv, h12_inv, h13_inv, h22_inv, h23_inv, h33_inv;
+    //float det_H = h11*(h22*h33 - h23*h23) - h12*(h12*h33 - h23*h13) + h13*(h12*h23 - h22*h13);
+    float det_H = h11*h22*h33 - h11*h23*h23 - h12*h12*h33 + 2*h12*h23*h13 - h13*h22*h13;
+    h11_inv = (h22*h33 - h23*h23) / det_H;
+    h12_inv = (h23*h13 - h12*h33) / det_H;
+    h13_inv = (h12*h23 - h22*h13) / det_H;
+    h22_inv = (h11*h33 - h13*h13) / det_H;
+    h23_inv = (h12*h13 - h11*h23) / det_H;
+    h33_inv = (h11*h22 - h12*h12) / det_H;
+
+    float alfa1, alfa2, alfa3;
+    alfa1 = - h11_inv*g1 - h12_inv*g2 - h13_inv*g3;
+    alfa2 = - h12_inv*g1 - h22_inv*g2 - h23_inv*g3;
+    alfa3 = - h13_inv*g1 - h23_inv*g2 - h33_inv*g3;
+
+    alfa_vals = {alfa1, alfa2, alfa3};
+
+    k.omega = img_curr.at<float>(k.m, k.n) + 0.5f*(alfa1*g1 + alfa2*g2 + alfa3*g3);
+
+    return alfa_vals;
 }
