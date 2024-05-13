@@ -4,6 +4,10 @@
 #include "cstdlib"
 #include <vector>
 #include "sift.h"
+#include <opencv2/xfeatures2d.hpp>
+using namespace cv;
+using namespace cv::xfeatures2d;
+using namespace std;
 
 cv::Mat computeAbsolute(const cv::Mat& inputImage) {
     // Create a new matrix to store the absolute values
@@ -13,29 +17,39 @@ cv::Mat computeAbsolute(const cv::Mat& inputImage) {
     for (int i = 0; i < inputImage.rows; ++i) {
         for (int j = 0; j < inputImage.cols; ++j) {
             // Compute the absolute value of the pixel value
-            absoluteImage.at<float>(i, j) = std::abs(inputImage.at<float>(i, j));
+            absoluteImage.at<double>(i, j) = std::abs(inputImage.at<double>(i, j));
         }
     }
 
     return absoluteImage;
 }
+void drawPoints(cv::Mat& image, keypoints points) {
+    // Loop through each point and draw it on the image
+    for (const auto& point : points) {
+        cv::circle(image, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), cv::FILLED);
+    }
 
+    // Display the image
+    cv::imshow("Image with Points", image);
+    cv::waitKey(0);
+}
 
 int main(int argc, char** argv)
 {
-    cv::Mat img = cv::imread("../book_in_scene.jpg", cv::IMREAD_GRAYSCALE);
-    //cv::resize(img, img, cv::Size(200,200));
-    cv::Mat grayMat, colorMat;
-    // Remember that the image has to be converted to float values
+    cv::Mat img = cv::imread("../book_in_scene.jpg");
+    cv::Mat gray_image;
+    cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
+
+
     std::cout << img.size << std::endl;
-    img.convertTo(img, CV_32F, 1.0 / 255.0 );
-    //img /= 255.;
+    gray_image.convertTo(gray_image, CV_64F);
+    cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX, CV_64F);
 
-
-    Pyramid pyramid = computeGaussianPyramid(img);
+    Pyramid pyramid = computeGaussianPyramid(gray_image);
 
     Pyramid DoG = computeDoGPyramid(pyramid);
     keypoints k_points = locateExtrema(DoG);
+    drawPoints(gray_image, k_points);
     //keypoints refined_Ks = keypointRefinement(DoG, k_points);
 
     std::cout << k_points.size() << std::endl;
@@ -44,12 +58,12 @@ int main(int argc, char** argv)
     std::cout << pyramid.imgs.size() << std::endl;
     std::cout << pyramid.num_oct << std::endl;
 
-    cv::Mat image1 = (DoG.imgs.at(0));
-    cv::Mat image2 = (DoG.imgs.at(7));
-    cv::Mat image3 = (DoG.imgs.at(14));
-    cv::Mat image4 = (DoG.imgs.at(21));
-    cv::Mat image5 = (DoG.imgs.at(28));
-    cv::Mat image6 = (DoG.imgs.at(35));
+    cv::Mat image1 = (pyramid.imgs.at(0));
+    cv::Mat image2 = (pyramid.imgs.at(1));
+    cv::Mat image3 = (pyramid.imgs.at(3));
+    cv::Mat image4 = (pyramid.imgs.at(5));
+    cv::Mat image5 = (pyramid.imgs.at(7));
+    cv::Mat image6 = (pyramid.imgs.at(9));
 
 
     // Check if images are loaded successfully
@@ -88,11 +102,11 @@ int main(int argc, char** argv)
     // Wait for a key press
     cv::waitKey(0);
 
-    /*cv::Mat some_nums(3,3, CV_32FC1);
+    /*cv::Mat some_nums(3,3, CV_64FC1);
     cv::randu(some_nums, 0, 255);
 
-    std::cout << some_nums.at<float>(2,0) << std::endl;
-    std::cout << some_nums.at<float>(6) << std::endl;*/
+    std::cout << some_nums.at<double>(2,0) << std::endl;
+    std::cout << some_nums.at<double>(6) << std::endl;*/
 
     return 0;
 }

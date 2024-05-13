@@ -10,21 +10,21 @@
 #include <cmath>
 
 constexpr int NUM_OCT = 8;
-constexpr int NUM_SCL_PER_OCT = 3; 
-constexpr float MIN_SIGMA = 0.8; // Minimal blur level
-constexpr float INP_SIGMA = 0.5; // Assumed blur level of input image
-constexpr float IN_PX_DST = 1.0; 
-constexpr float PX_DST_MIN = 0.5;
+constexpr int NUM_SCL_PER_OCT = 3;
+constexpr double MIN_SIGMA = 0.8; // Minimal blur level
+constexpr double INP_SIGMA = 0.5; // Assumed blur level of input image
+constexpr double IN_PX_DST = 1.0;
+constexpr double PX_DST_MIN = 0.5;
 
 constexpr int MAX_INTER_ITERS = 5;
-constexpr float MAX_REF_THR = 0.5; 
-constexpr float DOG_THR = 0.015f;
-constexpr float EDGE_THR = 10.f;
+constexpr double MAX_REF_THR = 0.5;
+constexpr double DOG_THR = 0.015;
+constexpr double EDGE_THR = 10.;
 
 struct Pyramid{
   int num_oct = NUM_OCT;
   int num_scales_per_oct;
-  std::vector<cv::Mat> imgs{}; 
+  std::vector<cv::Mat> imgs{};
 };
 
 struct KeyPoint {
@@ -35,20 +35,20 @@ struct KeyPoint {
 
     int x = 0;
     int y = 0;
-    float sigma = 0.f; //blur level
-    float omega = 0.f; //intensity of the extremum
+    double sigma = 0.f; //blur level
+    double omega = 0.f; //intensity of the extremum
 };
 
 typedef std::vector<KeyPoint> keypoints;
 
 Pyramid computeGaussianPyramid(const cv::Mat img);
 
-Pyramid computeDoGPyramid(const Pyramid pyramid);
+Pyramid computeDoGPyramid(const Pyramid& pyramid);
 
-keypoints locateExtrema(const Pyramid dog, float C_dog = DOG_THR, float C_edge = EDGE_THR);
+keypoints locateExtrema(const Pyramid dog, double C_dog = DOG_THR, double C_edge = EDGE_THR);
 
-bool keypointRefinement(const Pyramid DoG, KeyPoint k);
+bool keypointRefinement(const Pyramid& DoG, KeyPoint& k);
 
-cv::Vec3f quadraticInterpolation(Pyramid DoG, KeyPoint& k);
+cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
 
-bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, float C_edge);
+bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, double C_edge);

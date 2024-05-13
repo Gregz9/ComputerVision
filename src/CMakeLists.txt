@@ -18,7 +18,8 @@ add_executable(${exe_name}
   main.cpp
   sift.cc
   filters.cc
-  )
+        Sift.cpp
+)
 
 target_link_libraries(${exe_name}
   ${OpenCV_LIBS}
