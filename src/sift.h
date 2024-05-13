@@ -47,6 +47,8 @@ Pyramid computeDoGPyramid(const Pyramid pyramid);
 
 keypoints locateExtrema(const Pyramid dog, float C_dog = DOG_THR, float C_edge = EDGE_THR);
 
-keypoints keypointRefinement(const Pyramid DoG, keypoints k_points);
+bool keypointRefinement(const Pyramid DoG, KeyPoint k);
 
-cv::Vec3f quadraticInterpolation(Pyramid DoG, KeyPoint k);
+cv::Vec3f quadraticInterpolation(Pyramid DoG, KeyPoint& k);
+
+bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, float C_edge);

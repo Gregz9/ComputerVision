@@ -9,7 +9,7 @@ Pyramid computeGaussianPyramid(cv::Mat img){
     std_dev /= PX_DST_MIN;
 
     cv::Mat kernel = create1DGaussKernel(std_dev);
-    cv::sepFilter2D(img, img, -1, kernel, kernel);
+    cv::sepFilter2D(img, img, CV_32F, kernel, kernel);
 
     int num_scales = NUM_SCL_PER_OCT + 3;
     float min_coef = MIN_SIGMA / PX_DST_MIN;
@@ -30,13 +30,14 @@ Pyramid computeGaussianPyramid(cv::Mat img){
     for (int i=0; i<NUM_OCT; i++){
         pyramid.imgs.push_back(img.clone());
 
-        for(int j=1; j < (int)std_devs.size(); j++){
-            const cv::Mat& scale_img = pyramid.imgs.at(i*num_scales);
-            cv::Mat blur_kernel = create1DGaussKernel(std_dev);
+        for(int j=1; j < std_devs.size(); j++){
+            const cv::Mat scale_img = pyramid.imgs.at(i*num_scales).clone();
+            cv::Mat blur_kernel = create1DGaussKernel(std_devs[j]);
             cv::sepFilter2D(scale_img, scale_img, CV_32F, blur_kernel, blur_kernel);
+
             pyramid.imgs.push_back(scale_img.clone());
         }
-        const cv::Mat& next_img = pyramid.imgs.at((i*num_scales)+NUM_SCL_PER_OCT);
+        const cv::Mat next_img = pyramid.imgs.at((i*num_scales)+NUM_SCL_PER_OCT);
         cv::resize(next_img, img, cv::Size(img.rows/2, img.cols/2), cv::INTER_LINEAR);
 
     }
@@ -52,9 +53,7 @@ Pyramid computeDoGPyramid(const Pyramid gauss) {
     for (int o = 0; o < dog.num_oct; ++o) {
         for (int s = 1; s < gauss.num_scales_per_oct; ++s) { // Start from s = 0
             cv::Mat diff_img = gauss.imgs[(o * gauss.num_scales_per_oct) + s] - gauss.imgs[(o * gauss.num_scales_per_oct) + s-1];
-
-            dog.imgs.push_back(diff_img);
-
+            dog.imgs.push_back(diff_img.clone());
         }
     }
     return dog;
@@ -67,14 +66,16 @@ keypoints locateExtrema(const Pyramid dog, float C_dog, float C_edge) {
     for(int o = 0; o < dog.num_oct; ++o) {
         // DoG pyramid has already num_scales-1, hence only 1 subtracted
         for(int s=1; s < dog.num_scales_per_oct-1; ++s) {
-            cv::Mat img_DoG = dog.imgs.at((o*dog.num_scales_per_oct)+s);
-            cv::Mat prev_img_DoG = dog.imgs.at((o*dog.num_scales_per_oct)+s-1);
-            cv::Mat next_img_DoG = dog.imgs.at((o*dog.num_scales_per_oct)+s+1);
+
+            const cv::Mat& img_DoG = dog.imgs[(o*dog.num_scales_per_oct)+s];
+            const cv::Mat& prev_img_DoG = dog.imgs[(o*dog.num_scales_per_oct)+s-1];
+            const cv::Mat& next_img_DoG = dog.imgs[(o*dog.num_scales_per_oct)+s+1];
+
             for(int i = 1; i < img_DoG.rows -1; ++i) {
                 for(int j =1; j < img_DoG.cols -1; ++j) {
                     float current_pixel = img_DoG.at<float>(i,j);
                     // It's more efficient to check for the threshold criteria here, rather than later.
-                    if(std::abs(img_DoG.at<float>(i,j)) < 0.8*C_dog) {
+                    if(std::abs(current_pixel) < 0.8f*C_dog) {
                         continue;
                     }
 
@@ -98,7 +99,9 @@ keypoints locateExtrema(const Pyramid dog, float C_dog, float C_edge) {
                     }
                     if (max || min) {
                         KeyPoint k = {i, j, o, s};
-                        k_points.push_back(k);
+                        bool valid = keypointRefinement(dog, k);
+                        if(valid)
+                            k_points.push_back(k);
                     }
 
                     // Refinement could be done here, i.e. keypoint interpolation
@@ -109,24 +112,38 @@ keypoints locateExtrema(const Pyramid dog, float C_dog, float C_edge) {
     return k_points;
 }
 
-keypoints keypointRefinement(const Pyramid DoG, keypoints k_points) {
-
-    for(int i = 0; i < (int)k_points.size(); ++i) {
-        KeyPoint k = k_points.at(i);
-        for(int t = 0; t < MAX_INTER_ITERS; ++t) {
+bool keypointRefinement(const Pyramid DoG, KeyPoint k) {
+        bool is_valid = false;
+        int t = 0;
+        while(t++ < MAX_INTER_ITERS) {
             // Quadratic interpolation
             cv::Vec3f alfas = quadraticInterpolation(DoG, k);
             k.scale += static_cast<int>(round(alfas[0]));
             k.m += static_cast<int>(round(alfas[1]));
             k.n += static_cast<int>(round(alfas[2]));
+            if(k.scale >= DoG.num_oct-1 || k.scale < 1)
+                break;
 
+            float quad_extremum = std::max({abs(alfas[0]), abs(alfas[1]), abs(alfas[2])});
+            bool not_edge = checkIfPointOnEdge(DoG, k, EDGE_THR);
+            bool valid_contr = abs(k.omega) > DOG_THR;
 
+            if (quad_extremum < 0.6 && valid_contr && not_edge) {
+
+                // Continuous values of sigma and image coordinates. RMB! PX_DIST(o) = PX_DST(o-1)*2**(o-1)
+                float curr_px_dist = PX_DST_MIN * static_cast<float>(pow(2, k.octave));
+                k.sigma = MIN_SIGMA*static_cast<float>(pow(2, k.scale/NUM_SCL_PER_OCT));
+                k.x = curr_px_dist * k.m;
+                k.y = curr_px_dist * k.n;
+                is_valid=true;
+                break;
+            }
         }
-    }
-    return k_points;
+
+    return is_valid;
 }
 
-cv::Vec3f quadraticInterpolation(KeyPoint k, Pyramid DoG) {
+cv::Vec3f quadraticInterpolation(Pyramid DoG, KeyPoint& k) {
 
     cv::Vec3f alfa_vals;
     cv::Mat img_prev = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale-1];
@@ -167,4 +184,23 @@ cv::Vec3f quadraticInterpolation(KeyPoint k, Pyramid DoG) {
     k.omega = img_curr.at<float>(k.m, k.n) + 0.5f*(alfa1*g1 + alfa2*g2 + alfa3*g3);
 
     return alfa_vals;
+}
+
+bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, float C_edge) {
+
+    float h11, h12, h22;
+    cv::Mat img_curr = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale];
+    h11 = img_curr.at<float>(k.m+1, k.n) + img_curr.at<float>(k.m-1, k.n) - 2*img_curr.at<float>(k.m, k.n);
+    h22 = img_curr.at<float>(k.m, k.n+1) + img_curr.at<float>(k.m, k.n-1) - 2*img_curr.at<float>(k.m, k.n);
+    h12 = 0.25f*(img_curr.at<float>(k.m+1, k.n+1) + img_curr.at<float>(k.m+1, k.n-1) - img_curr.at<float>(k.m-1, k.n+1) + img_curr.at<float>(k.m-1, k.n-1));
+
+    float trace_H = h11+h22;
+    float det_H = h11*h22 - h12*h12;
+    float edgeness = (trace_H*trace_H)/det_H;
+    float edgeness_threshold = ((C_edge+1)*(C_edge+1))/C_edge;
+
+    if(edgeness < edgeness_threshold)
+        return true;
+    else
+        return false;
 }

@@ -27,17 +27,19 @@ int main(int argc, char** argv)
     //cv::resize(img, img, cv::Size(200,200));
     cv::Mat grayMat, colorMat;
     // Remember that the image has to be converted to float values
-
-    img.convertTo(img, CV_32F);
-    img /= 255.;
+    std::cout << img.size << std::endl;
+    img.convertTo(img, CV_32F, 1.0 / 255.0 );
+    //img /= 255.;
 
 
     Pyramid pyramid = computeGaussianPyramid(img);
-    std::cout << "\n" << std::endl;
+
     Pyramid DoG = computeDoGPyramid(pyramid);
     keypoints k_points = locateExtrema(DoG);
+    //keypoints refined_Ks = keypointRefinement(DoG, k_points);
 
     std::cout << k_points.size() << std::endl;
+    //std::cout << refined_Ks.size() << std::endl;
 
     std::cout << pyramid.imgs.size() << std::endl;
     std::cout << pyramid.num_oct << std::endl;

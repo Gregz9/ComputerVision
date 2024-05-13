@@ -37,3 +37,5 @@ target_compile_options(${exe_name} PRIVATE
 target_compile_definitions(${exe_name} PUBLIC
   "$<${msvc_cxx}:-D_USE_MATH_DEFINES>"
   )
+
+#set(CMAKE_CXX_FLAGS "-O3")
