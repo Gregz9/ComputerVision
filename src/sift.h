@@ -21,6 +21,13 @@ constexpr double MAX_REF_THR = 0.5;
 constexpr double DOG_THR = 0.015;
 constexpr double EDGE_THR = 10.;
 
+// Histogram specific values
+int N_BINS = 36;
+int N_HISTS = 4;
+int N_ORI = 8;
+double LAMB_ORI = 1.5;
+double LAMB_DESC = 6.;
+
 struct Pyramid{
   int num_oct = NUM_OCT;
   int num_scales_per_oct;
@@ -37,6 +44,7 @@ struct KeyPoint {
     int y = 0;
     double sigma = 0.f; //blur level
     double omega = 0.f; //intensity of the extremum
+    double orientation;
 };
 
 typedef std::vector<KeyPoint> keypoints;
@@ -55,3 +63,4 @@ cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
 
 bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, double C_edge);
 
+keypoints computeReferenceOrientation(keypoints& k_points,const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);

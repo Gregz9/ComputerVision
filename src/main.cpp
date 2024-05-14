@@ -62,9 +62,9 @@ int main(int argc, char** argv)
     cv::Mat image1 = (pyramid.imgs.at(0));
     cv::Mat image2 = (pyramid.imgs.at(1));
     cv::Mat image3 = (pyramid.imgs.at(3));
-    cv::Mat image4 = (pyramid.imgs.at(5));
-    cv::Mat image5 = (pyramid.imgs.at(7));
-    cv::Mat image6 = (pyramid.imgs.at(9));
+    cv::Mat image4 = (pyramid.imgs.at(10));
+    cv::Mat image5 = (pyramid.imgs.at(20));
+    cv::Mat image6 = (pyramid.imgs.at(30));
 
 
     // Check if images are loaded successfully

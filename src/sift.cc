@@ -83,11 +83,13 @@ Pyramid computeGradientImages(const Pyramid& scale_space) {
                 for(int j = 1; j < curr_img.cols-1; ++j) {
                     double gx = 0.5*(curr_img.at<double>(i+1, j) - curr_img.at<double>(i-1, j));
                     double gy = 0.5*(curr_img.at<double>(i, j+1) - curr_img.at<double>(i, j-1));
+                    cv::Mat grads{gx, gy};
+                    ScaleSpaceGradients.imgs.push_back(grads);
                 }
             }
         }
     }
-
+    return ScaleSpaceGradients;
 }
 
 keypoints locateExtrema(const Pyramid dog, double C_dog, double C_edge) {
@@ -233,4 +235,11 @@ bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, double C_edge) {
         return true;
     else
         return false;
+}
+
+keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lab_ori, double lamb_desc) {
+
+
+
+    return keypoints{};
 }
