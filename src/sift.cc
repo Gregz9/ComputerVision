@@ -67,6 +67,29 @@ Pyramid computeDoGPyramid(const Pyramid& gauss) {
     return dog;
 }
 
+Pyramid computeGradientImages(const Pyramid& scale_space) {
+
+    Pyramid ScaleSpaceGradients = {
+            scale_space.num_oct,
+            scale_space.num_scales_per_oct,
+            std::vector<cv::Mat>(scale_space.imgs.size())
+    };
+
+    for(int o = 0; o < scale_space.num_oct; ++o) {
+        for(int s = 0; s < scale_space.num_scales_per_oct; ++s) {
+            cv::Mat curr_img = scale_space.imgs[(o*scale_space.num_scales_per_oct)+s];
+            cv::Mat grad_img(curr_img.size(), curr_img.type());
+            for(int i = 1; i < curr_img.rows-1; ++i) {
+                for(int j = 1; j < curr_img.cols-1; ++j) {
+                    double gx = 0.5*(curr_img.at<double>(i+1, j) - curr_img.at<double>(i-1, j));
+                    double gy = 0.5*(curr_img.at<double>(i, j+1) - curr_img.at<double>(i, j-1));
+                }
+            }
+        }
+    }
+
+}
+
 keypoints locateExtrema(const Pyramid dog, double C_dog, double C_edge) {
     // Impossible to know how many keypoint candidates there'll
     // be, hence cannot reserve a specific size for the vector.

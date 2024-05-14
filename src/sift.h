@@ -45,6 +45,8 @@ Pyramid computeGaussianPyramid(const cv::Mat img);
 
 Pyramid computeDoGPyramid(const Pyramid& pyramid);
 
+Pyramid computeGradientImages(Pyramid scale_space);
+
 keypoints locateExtrema(const Pyramid dog, double C_dog = DOG_THR, double C_edge = EDGE_THR);
 
 bool keypointRefinement(const Pyramid& DoG, KeyPoint& k);
@@ -52,3 +54,4 @@ bool keypointRefinement(const Pyramid& DoG, KeyPoint& k);
 cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
 
 bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, double C_edge);
+

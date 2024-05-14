@@ -36,7 +36,8 @@ void drawPoints(cv::Mat& image, keypoints points) {
 
 int main(int argc, char** argv)
 {
-    cv::Mat img = cv::imread("../book_in_scene.jpg");
+    cv::Mat img = cv::imread("../IMG_2781.jpg");
+    cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
     cv::Mat gray_image;
     cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
 
