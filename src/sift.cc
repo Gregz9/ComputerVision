@@ -78,15 +78,16 @@ Pyramid computeGradientImages(const Pyramid& scale_space) {
     for(int o = 0; o < scale_space.num_oct; ++o) {
         for(int s = 0; s < scale_space.num_scales_per_oct; ++s) {
             cv::Mat curr_img = scale_space.imgs[(o*scale_space.num_scales_per_oct)+s];
-            cv::Mat grad_img(curr_img.size(), curr_img.type());
+            cv::Mat grad_img(curr_img.size(), CV_64FC2);
             for(int i = 1; i < curr_img.rows-1; ++i) {
                 for(int j = 1; j < curr_img.cols-1; ++j) {
                     double gx = 0.5*(curr_img.at<double>(i+1, j) - curr_img.at<double>(i-1, j));
                     double gy = 0.5*(curr_img.at<double>(i, j+1) - curr_img.at<double>(i, j-1));
                     cv::Mat grads{gx, gy};
-                    ScaleSpaceGradients.imgs.push_back(grads);
+                    grad_img.at<cv::Vec2d>(i,j) = grads;
                 }
             }
+            ScaleSpaceGradients.imgs.push_back(grad_img);
         }
     }
     return ScaleSpaceGradients;
@@ -237,9 +238,49 @@ bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, double C_edge) {
         return false;
 }
 
-keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lab_ori, double lamb_desc) {
+keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc) {
 
+    keypoints descr_keypoints{};
 
+    for(auto k : k_points) {
+        double curr_pix_dst = PX_DST_MIN * pow(2, k.octave);
+        double img_width = curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].cols;
+        double img_height = curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].rows;
+        double descr_patch_rad = std::sqrt(2) * lamb_desc * k.sigma;
+
+        //Checking whether the keypoint is distant enough from the image borders
+        if (!(descr_patch_rad <= k.x && k.x <= img_width - descr_patch_rad &&
+              descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad)) {
+            continue;
+        }
+        double gx, gy, grad_norm, grad_ori, exponent;
+        int bin_num;
+        double local_hist[N_BINS];
+        double ori_patch_rad = 3 * lamb_ori * k.sigma;
+        int start_x = static_cast<int>(round((k.x - ori_patch_rad) / curr_pix_dst));
+        int start_y = static_cast<int>(round((k.y - ori_patch_rad) / curr_pix_dst));
+        int end_x = static_cast<int>(round((k.x + ori_patch_rad) / curr_pix_dst));
+        int end_y = static_cast<int>(round((k.y + ori_patch_rad) / curr_pix_dst));
+
+        for (int m = start_x; m <= end_x; ++m) {
+            for (int n = start_y; n <= end_y; ++n) {
+                // Whenever possible, the use of the power function should be avoided, as it's less efficient
+                exponent = std::exp(((m * curr_pix_dst - k.x) * (m * curr_pix_dst - k.x) +
+                                            (n * curr_pix_dst - k.y, 2) * (n * curr_pix_dst - k.y, 2)) /
+                                           (2 * (lamb_ori * k.sigma, 2) * (lamb_ori * k.sigma, 2)));
+                // if possible, the use of the pow
+                gx = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[0];
+                gy = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[1];
+                grad_norm = std::sqrt((gx*gx) + (gy*gy));
+
+                bin_num = static_cast<int>(round((N_BINS/(2*M_PI)) * atan2(gy, gx) * std::fmod((2*M_PI),2.0)));
+                local_hist[bin_num] = exponent * grad_norm;
+            }
+        }
+        // Smoothing the histogram using circular convolution
+        cv::Vec3d kernel{(1./3.), (1./3.), (1./3.)};
+
+    }
 
     return keypoints{};
 }

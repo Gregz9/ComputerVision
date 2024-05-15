@@ -22,11 +22,11 @@ constexpr double DOG_THR = 0.015;
 constexpr double EDGE_THR = 10.;
 
 // Histogram specific values
-int N_BINS = 36;
-int N_HISTS = 4;
-int N_ORI = 8;
-double LAMB_ORI = 1.5;
-double LAMB_DESC = 6.;
+constexpr int N_BINS = 36;
+constexpr int N_HISTS = 4;
+constexpr int N_ORI = 8;
+constexpr double LAMB_ORI = 1.5;
+constexpr double LAMB_DESC = 6.;
 
 struct Pyramid{
   int num_oct = NUM_OCT;
