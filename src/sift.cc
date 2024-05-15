@@ -238,11 +238,8 @@ bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, double C_edge) {
         return false;
 }
 
-keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc) {
+std::vector<double> computeReferenceOrientation(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc) {
 
-    keypoints descr_keypoints{};
-
-    for(auto k : k_points) {
         double curr_pix_dst = PX_DST_MIN * pow(2, k.octave);
         double img_width = curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].cols;
         double img_height = curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].rows;
@@ -251,7 +248,7 @@ keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleS
         //Checking whether the keypoint is distant enough from the image borders
         if (!(descr_patch_rad <= k.x && k.x <= img_width - descr_patch_rad &&
               descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad)) {
-            continue;
+                return{};
         }
         double gx, gy, grad_norm, grad_ori, exponent;
         int bin_num;
@@ -278,9 +275,36 @@ keypoints computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleS
             }
         }
         // Smoothing the histogram using circular convolution
-        cv::Vec3d kernel{(1./3.), (1./3.), (1./3.)};
+        double temp_hist[N_BINS];
+        for(int c = 0; c < 6; ++c) {
+            for (int i = 0; i < N_BINS; ++i) {
+                temp_hist[i] =
+                        (local_hist[((i - 1) + N_BINS) % N_BINS] + local_hist[i] + local_hist[(i + 1) % N_BINS]) / 3.;
+            }
+            for (int i = 0; i < N_BINS; ++i) {
+                local_hist[i] = temp_hist[i];
+            }
+        }
 
-    }
+        // Extraction of reference orientation
+        // First step: Find the maximum value in the histogram.
+        double max_hist_val{0};
+        for(double h : local_hist) {
+            if(h > max_hist_val)
+                max_hist_val = h;
+        }
 
-    return keypoints{};
+        std::vector<double> orientations;
+        for(int i = 0; i < N_BINS; ++i) {
+            // Still a minor degree of border wrapping
+            double prev_element = local_hist[((i-1)+N_BINS)%N_BINS];
+            double next_element = local_hist[(i+1)%N_BINS];
+            if(local_hist[i] > prev_element &&
+                local_hist[i] > next_element &&
+                local_hist[i] < 0.8*max_hist_val) {
+                double ori_key = (2*M_PI*(i-1))/N_BINS + (M_PI/N_BINS) * ((prev_element - next_element)/(prev_element - 2*local_hist[i] + next_element));
+                orientations.push_back(ori_key);
+            }
+        }
+    return orientations;
 }

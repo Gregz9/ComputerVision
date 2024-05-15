@@ -60,24 +60,6 @@ int main(int argc, char** argv)
     std::cout << pyramid.imgs.size() << std::endl;
     std::cout << pyramid.num_oct << std::endl;
 
-    //test convolution:
-
-    vector<float> elements = {1, 2, 4, 3};
-
-    // Convert vector to cv::Mat
-    Mat array(1, elements.size(), CV_32F);
-    for (int i = 0; i < elements.size(); ++i) {
-        array.at<float>(0, i) = elements[i];
-    }
-
-    cv::Mat kernel = Mat(1, 3, CV_32F, 1.0/3);
-    Mat result;
-    filter2D(array, result, -1, kernel, cv::Point(-1, -1), 0, BORDER_WRAP);
-    for(int i = 0; i < 3; ++i) {
-        std::cout << result.at<float>(i) << ", ";
-    }
-    std::cout << "\n";
-
     cv::Mat image1 = (pyramid.imgs.at(0));
     cv::Mat image2 = (pyramid.imgs.at(1));
     cv::Mat image3 = (pyramid.imgs.at(3));
