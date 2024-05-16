@@ -238,7 +238,11 @@ bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, double C_edge) {
         return false;
 }
 
-std::vector<double> computeReferenceOrientation(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc) {
+void computeReferenceOrientation(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc) {
+
+        /* Writing the implementation as specified in the article "Anatomy of the SIFT method"
+         * leads to memory inefficiency, i.e. unnecessarily wasted memory. Therefore, This implementation
+         * will compute the reference orientation and descriptor for one keypoint at the time.*/
 
         double curr_pix_dst = PX_DST_MIN * pow(2, k.octave);
         double img_width = curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].cols;
@@ -248,7 +252,7 @@ std::vector<double> computeReferenceOrientation(KeyPoint& k, const Pyramid& scal
         //Checking whether the keypoint is distant enough from the image borders
         if (!(descr_patch_rad <= k.x && k.x <= img_width - descr_patch_rad &&
               descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad)) {
-                return{};
+                return;
         }
         double gx, gy, grad_norm, grad_ori, exponent;
         int bin_num;
@@ -263,8 +267,8 @@ std::vector<double> computeReferenceOrientation(KeyPoint& k, const Pyramid& scal
             for (int n = start_y; n <= end_y; ++n) {
                 // Whenever possible, the use of the power function should be avoided, as it's less efficient
                 exponent = std::exp(((m * curr_pix_dst - k.x) * (m * curr_pix_dst - k.x) +
-                                            (n * curr_pix_dst - k.y, 2) * (n * curr_pix_dst - k.y, 2)) /
-                                           (2 * (lamb_ori * k.sigma, 2) * (lamb_ori * k.sigma, 2)));
+                                            (n * curr_pix_dst - k.y) * (n * curr_pix_dst - k.y)) /
+                                           (2 * (lamb_ori * k.sigma) * (lamb_ori * k.sigma)));
                 // if possible, the use of the pow
                 gx = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[0];
                 gy = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[1];
@@ -303,8 +307,55 @@ std::vector<double> computeReferenceOrientation(KeyPoint& k, const Pyramid& scal
                 local_hist[i] > next_element &&
                 local_hist[i] < 0.8*max_hist_val) {
                 double ori_key = (2*M_PI*(i-1))/N_BINS + (M_PI/N_BINS) * ((prev_element - next_element)/(prev_element - 2*local_hist[i] + next_element));
-                orientations.push_back(ori_key);
+                k.ref_oris.push_back(ori_key);
             }
         }
-    return orientations;
+}
+
+void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_descr) {
+
+    // Required values
+    double k_dist = PX_DST_MIN * std::pow(2, k.octave);
+    double rad = k.sigma * lamb_descr;
+
+    /* At this point the algorithm checks whether the keypoint is distant enough from
+     * the image borders. This check has been already performed, in the previous step
+     * of the algorithm. For more detail see algorithm 11 and 12 in the article "Anatomy
+     * of the SIFT Method". */
+
+    // Initializing the histograms
+    double* weighted_historgrams = static_cast<double *>(malloc(
+            N_HISTS * N_HISTS * N_ORI * sizeof weighted_historgrams));
+
+    cv::Mat grad_img = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale];
+    int start_x = static_cast<int>(std::round((k.x - std::sqrt(2)*rad*((N_HISTS+1.)/N_HISTS))/k_dist));
+    int end_x = static_cast<int>(std::round((k.x + std::sqrt(2)*rad*((N_HISTS+1.)/N_HISTS))/k_dist));
+    int start_y = static_cast<int>(std::round((k.y - std::sqrt(2)*rad*((N_HISTS+1.)/N_HISTS))/k_dist));
+    int end_y = static_cast<int>(std::round((k.y + std::sqrt(2)*rad*((N_HISTS+1.)/N_HISTS))/k_dist));
+
+    for(double ori : k.ref_oris) {
+        double sine_ori = std::sin(ori);
+        double cosine_ori = std::cos(ori);
+        for(int m = start_x; m <= end_x; ++m) {
+            for(int n = start_y; n <= end_y; ++n) {
+                // Compute
+                double x_hat = (((m*k_dist - k.x)*cosine_ori) + ((n*k_dist - k.y)*sine_ori))/k.sigma;
+                double y_hat = (((m*k_dist - k.x)*cosine_ori) + ((n*k_dist - k.y)*sine_ori))/k.sigma;
+
+                // Verify that the sample (m,n) is inside the normalized patch
+                double max_dist = std::max(std::abs(x_hat), std::abs(y_hat));
+                if(max_dist > lamb_descr * ((N_HISTS+1.)/N_HISTS))
+                    continue;
+
+                // Compute normalized gradient orientation (We're adding 2*pi to ensure a positive result which
+                // falls in the interval of [0, 2*pi], we could also add 4*pi.
+                double norm_ori = std::fmod(atan2(grad_img.at<cv::Vec2d>(m,n)[1], grad_img.at<cv::Vec2d>(m,n)[1]) - ori + 2*M_PI, 2*M_PI);
+                double exponent =
+                double weight =
+            }
+        }
+    }
+
+
+    free(weighted_historgrams);
 }

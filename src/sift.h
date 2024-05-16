@@ -44,6 +44,7 @@ struct KeyPoint {
     int y = 0;
     double sigma = 0.f; //blur level
     double omega = 0.f; //intensity of the extremum
+    std::vector<double> ref_oris; // Reference orientations
     std::vector<double> descriptor;
 };
 
@@ -63,5 +64,6 @@ cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
 
 bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, double C_edge);
 
-keypoints computeReferenceOrientation(keypoints& k_points,const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
+void computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
 
+void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_descr);
