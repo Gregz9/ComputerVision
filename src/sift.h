@@ -44,26 +44,28 @@ struct KeyPoint {
     int y = 0;
     double sigma = 0.f; //blur level
     double omega = 0.f; //intensity of the extremum
-    std::vector<double> ref_oris; // Reference orientations
+    std::vector<double> ref_oris{}; // Reference orientations
     std::vector<double> descriptor;
 };
 
 typedef std::vector<KeyPoint> keypoints;
 
-Pyramid computeGaussianPyramid(const cv::Mat img);
+Pyramid computeGaussianPyramid(const cv::Mat& in_img);
 
 Pyramid computeDoGPyramid(const Pyramid& pyramid);
 
 Pyramid computeGradientImages(Pyramid scale_space);
 
-keypoints locateExtrema(const Pyramid dog, double C_dog = DOG_THR, double C_edge = EDGE_THR);
+keypoints locateExtrema(const Pyramid& dog, double C_dog = DOG_THR, double C_edge = EDGE_THR);
 
 bool keypointRefinement(const Pyramid& DoG, KeyPoint& k);
 
 cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
 
-bool checkIfPointOnEdge(Pyramid Dog, KeyPoint k, double C_edge);
+bool checkIfPointOnEdge(const Pyramid& Dog, const KeyPoint& k, double C_edge);
 
 void computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
 
 void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_descr);
+
+keypoints detect(cv::Mat img);

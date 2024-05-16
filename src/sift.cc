@@ -1,8 +1,9 @@
 #include "sift.h"
 #include "filters.h"
 
-Pyramid computeGaussianPyramid(cv::Mat img){
-    cv::resize(img, img, cv::Size(img.cols*2, img.rows*2),0,0, cv::INTER_LINEAR);
+Pyramid computeGaussianPyramid(const cv::Mat& in_img){
+    cv::Mat img;
+    cv::resize(in_img, img, cv::Size(img.cols*2, img.rows*2),0,0, cv::INTER_LINEAR);
     // Computing the standard deviation of the gaussian kernel
     // For the very first image, init_sigma is equivalent to:
 
@@ -32,7 +33,7 @@ Pyramid computeGaussianPyramid(cv::Mat img){
     for (int i = 0; i < NUM_OCT; i++) {
         pyramid.imgs.push_back(img);
 
-        for (int j = 1; j < std_devs.size(); j++) {
+        for (int j = 1; j < static_cast<int>(std_devs.size()); j++) {
             // Old solution
             /*cv::Mat scale_img = pyramid.imgs.at(i*num_scales).clone();
             cv::Mat blur_kernel = create1DGaussKernel(std_devs[j]);
@@ -91,7 +92,7 @@ Pyramid computeGradientImages(const Pyramid& scale_space) {
     return ScaleSpaceGradients;
 }
 
-keypoints locateExtrema(const Pyramid dog, double C_dog, double C_edge) {
+keypoints locateExtrema(const Pyramid& dog, double C_dog, double C_edge) {
     // Impossible to know how many keypoint candidates there'll
     // be, hence cannot reserve a specific size for the vector.
     keypoints k_points{};
@@ -216,7 +217,7 @@ cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k) {
     return alfa_vals;
 }
 
-bool checkIfPointOnEdge(Pyramid DoG, KeyPoint k, double C_edge) {
+bool checkIfPointOnEdge(const Pyramid& DoG, const KeyPoint& k, double C_edge) {
 
     double h11, h12, h22;
     const cv::Mat& img_curr = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale];
@@ -252,7 +253,7 @@ void computeReferenceOrientation(KeyPoint& k, const Pyramid& scaleSpaceGrads, do
               descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad)) {
                 return;
         }
-        double gx, gy, grad_norm, grad_ori, exponent;
+        double gx, gy, grad_norm, exponent;
         int bin_num;
         double local_hist[N_BINS];
         double ori_patch_rad = 3 * lamb_ori * k.sigma;
@@ -322,8 +323,8 @@ void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double
      * of the SIFT Method". */
 
     // Initializing the histograms
-    double* weighted_historgrams = static_cast<double *>(malloc(
-            N_HISTS * N_HISTS * N_ORI * sizeof weighted_historgrams));
+    auto* weighted_historgrams = static_cast<double *>(malloc(
+            N_HISTS * N_HISTS * N_ORI * sizeof(double)));
 
     cv::Mat grad_img = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale];
     int start_x = static_cast<int>(std::round((k.x - std::sqrt(2)*rad*((N_HISTS+1.)/N_HISTS))/k_dist));
@@ -359,11 +360,11 @@ void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double
                 // Updating the nearest histograms
                 double x_hat_i, y_hat_j;
                 for(int i = 0; i < N_HISTS; ++i) {
-                    x_hat_i = (i - ((1 + N_HISTS)/2))*((2*lamb_descr)/N_HISTS);
+                    x_hat_i = (i - ((1 + N_HISTS)/2.))*((2*lamb_descr)/N_HISTS);
                     if (std::abs(x_hat_i - x_hat) > ((2*lamb_descr)/N_HISTS))
                         continue;
                     for(int j = 0; j < N_HISTS; ++j) {
-                        y_hat_j = (j - ((1 + N_HISTS)/2))*((2*lamb_descr)/N_HISTS);
+                        y_hat_j = (j - ((1 + N_HISTS)/2.))*((2*lamb_descr)/N_HISTS);
                         if(std::abs(y_hat_j - y_hat) > ((2*lamb_descr)/N_HISTS))
                             continue;
 
@@ -403,6 +404,13 @@ void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double
     for(int j = 0; j < descr_size; ++j) {
         k.descriptor.push_back(std::min(static_cast<int>(std::floor((512*weighted_historgrams[j])/l2_norm)), 255));
     }
-
+    // Since reference orientation are not needed, they can be cleared
+    k.ref_oris.clear();
     free(weighted_historgrams);
+}
+
+// The main function fusing all previous algorithms into one pipeline
+keypoints detect(cv::Mat img) {
+
+    return keypoints{};
 }
