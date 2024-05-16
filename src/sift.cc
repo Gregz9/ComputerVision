@@ -28,8 +28,6 @@ Pyramid computeGaussianPyramid(cv::Mat img){
         std_devs.push_back(std::sqrt(sigma*sigma - prev_sigma*prev_sigma));
     }
 
-
-
     pyramid.imgs.reserve(num_scales*NUM_OCT);
     for (int i = 0; i < NUM_OCT; i++) {
         pyramid.imgs.push_back(img);
@@ -266,7 +264,7 @@ void computeReferenceOrientation(KeyPoint& k, const Pyramid& scaleSpaceGrads, do
         for (int m = start_x; m <= end_x; ++m) {
             for (int n = start_y; n <= end_y; ++n) {
                 // Whenever possible, the use of the power function should be avoided, as it's less efficient
-                exponent = std::exp(((m * curr_pix_dst - k.x) * (m * curr_pix_dst - k.x) +
+                exponent = std::exp(-((m * curr_pix_dst - k.x) * (m * curr_pix_dst - k.x) +
                                             (n * curr_pix_dst - k.y) * (n * curr_pix_dst - k.y)) /
                                            (2 * (lamb_ori * k.sigma) * (lamb_ori * k.sigma)));
                 // if possible, the use of the pow
@@ -347,15 +345,64 @@ void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double
                 if(max_dist > lamb_descr * ((N_HISTS+1.)/N_HISTS))
                     continue;
 
-                // Compute normalized gradient orientation (We're adding 2*pi to ensure a positive result which
+                // Compute normalized gradient orientation. We're adding 2*pi to ensure a positive result which
                 // falls in the interval of [0, 2*pi], we could also add 4*pi.
                 double norm_ori = std::fmod(atan2(grad_img.at<cv::Vec2d>(m,n)[1], grad_img.at<cv::Vec2d>(m,n)[1]) - ori + 2*M_PI, 2*M_PI);
-                double exponent =
-                double weight =
+                double exponent = (((m*k_dist - k.x)*(m*k_dist - k.x)) + ((n*k_dist - k.y)*(n*k_dist - k.y)))/(2*(lamb_descr*k.sigma)*(lamb_descr*k.sigma));
+
+                //extract the image gradients
+                double gx = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[0];
+                double gy = scaleSpaceGrads.imgs[(k.octave*scaleSpaceGrads.num_scales_per_oct)+k.scale].at<cv::Vec2d>(m,n)[1];
+                double grad_norm = std::sqrt((gx*gx) + (gy*gy));
+                double contribution = std::exp(-exponent)*grad_norm;
+
+                // Updating the nearest histograms
+                double x_hat_i, y_hat_j;
+                for(int i = 0; i < N_HISTS; ++i) {
+                    x_hat_i = (i - ((1 + N_HISTS)/2))*((2*lamb_descr)/N_HISTS);
+                    if (std::abs(x_hat_i - x_hat) > ((2*lamb_descr)/N_HISTS))
+                        continue;
+                    for(int j = 0; j < N_HISTS; ++j) {
+                        y_hat_j = (j - ((1 + N_HISTS)/2))*((2*lamb_descr)/N_HISTS);
+                        if(std::abs(y_hat_j - y_hat) > ((2*lamb_descr)/N_HISTS))
+                            continue;
+
+                        double xy_hat_hist = (1 - (N_HISTS/(2*lamb_descr))*std::abs(x_hat - x_hat_i)) * (1 - (N_HISTS/(2*lamb_descr))*std::abs(y_hat - y_hat_j));
+                        for(int k_ = 0; k_ < N_ORI; ++k_) {
+                            double ori_hat_k = (2*M_PI*(k_-1.0))/N_ORI;
+                            double ori_hist = (1-(N_ORI/(2*M_PI)))*std::abs(ori_hat_k);
+                            if(std::fmod(std::abs(norm_ori - ori_hat_k+2*M_PI), 2*M_PI) >= (2*M_PI)/N_ORI)
+                                continue;
+
+                            weighted_historgrams[i*(N_HISTS*N_ORI)+(N_ORI*j)+k_] += xy_hat_hist*ori_hist*contribution;
+
+                        }
+                    }
+                }
             }
         }
     }
+    // Building the descriptor for the keypoint
+    // the size of the descriptor
+    int descr_size = N_HISTS*N_HISTS*N_ORI;
 
+    //Computing the Euclidean norm of the vector
+    double norm = 0.;
+    for(int l = 0; l < descr_size; ++l) {
+        norm += weighted_historgrams[l]*weighted_historgrams[l];
+    }
+    norm = std::sqrt(norm);
+
+    double l2_norm = 0;
+    for(int i = 0; i < descr_size; ++i) {
+        weighted_historgrams[i] = std::min(weighted_historgrams[i], 0.2*norm);
+        l2_norm += weighted_historgrams[i]*weighted_historgrams[i];
+    }
+    l2_norm = std::sqrt(l2_norm);
+
+    for(int j = 0; j < descr_size; ++j) {
+        k.descriptor.push_back(std::min(static_cast<int>(std::floor((512*weighted_historgrams[j])/l2_norm)), 255));
+    }
 
     free(weighted_historgrams);
 }
