@@ -50,7 +50,7 @@ struct KeyPoint {
 
 typedef std::vector<KeyPoint> keypoints;
 
-Pyramid computeGaussianPyramid(const cv::Mat& in_img);
+Pyramid computeGaussianPyramid(cv::Mat img);
 
 Pyramid computeDoGPyramid(const Pyramid& pyramid);
 

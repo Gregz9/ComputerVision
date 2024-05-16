@@ -1,9 +1,9 @@
 #include "sift.h"
 #include "filters.h"
 
-Pyramid computeGaussianPyramid(const cv::Mat& in_img){
-    cv::Mat img;
-    cv::resize(in_img, img, cv::Size(img.cols*2, img.rows*2),0,0, cv::INTER_LINEAR);
+Pyramid computeGaussianPyramid(cv::Mat img){
+
+    cv::resize(img, img, cv::Size(img.cols*2, img.rows*2),0,0, cv::INTER_LINEAR);
     // Computing the standard deviation of the gaussian kernel
     // For the very first image, init_sigma is equivalent to:
 
