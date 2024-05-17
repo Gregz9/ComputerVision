@@ -39,3 +39,4 @@ cv::Mat create1DDerivateGaussKernel(double std_dev) {
 
 }
 
+

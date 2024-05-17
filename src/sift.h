@@ -1,4 +1,5 @@
-#pragma once
+#ifndef MY_SIFT_H
+#define MY_SIFT_H
 
 // #include "opencv2/core.hpp"
 #include <vector>
@@ -8,6 +9,7 @@
 #include <opencv2/opencv.hpp>
 #include <stdlib.h>
 #include <cmath>
+#include <limits>
 
 constexpr int NUM_OCT = 8;
 constexpr int NUM_SCL_PER_OCT = 3;
@@ -27,6 +29,11 @@ constexpr int N_HISTS = 4;
 constexpr int N_ORI = 8;
 constexpr double LAMB_ORI = 1.5;
 constexpr double LAMB_DESC = 6.;
+
+// Values for matching
+constexpr double REL_THR = 0.6;
+constexpr int ABS_THR = 300; // 250 to 300
+constexpr double MAX_DIST = std::numeric_limits<double>::infinity();
 
 struct Pyramid{
   int num_oct = NUM_OCT;
@@ -49,6 +56,13 @@ struct Keypoint {
 };
 
 typedef std::vector<Keypoint> keypoints;
+typedef std::vector<std::pair<Keypoint, Keypoint>> matches;
+
+void drawKeypoints(cv::Mat& image, keypoints points);
+
+void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key_matches);
+
+void displayPyramid(const Pyramid& pyramid, int stride);
 
 Pyramid computeGaussianPyramid(cv::Mat img);
 
@@ -68,4 +82,10 @@ std::vector<double> computeReferenceOrientation(Keypoint& k_points, const Pyrami
 
 std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr, double* w_hist);
 
-keypoints detect(cv::Mat img);
+keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori);
+
+matches match_keypoints(const keypoints& keypoints_img1, const keypoints& keypoints_img2, double rThr=REL_THR, int dThr=ABS_THR);
+
+double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2);
+
+#endif /* MY_SIFT_H */

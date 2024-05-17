@@ -1,6 +1,61 @@
 #include "sift.h"
 #include "filters.h"
 
+
+void drawKeypoints(cv::Mat& image, keypoints points) {
+    // Loop through each point and draw it on the image
+    for (const auto& point : points) {
+        cv::circle(image, cv::Point(point.x, point.y), 3, cv::Scalar(0, 0, 255), 1); // Change cv::FILLED to 1
+    }
+
+    // Display the image
+    cv::imshow("Image with Points", image);
+    cv::waitKey(0);
+}
+
+void displayPyramid(const Pyramid& pyramid, int stride) {
+
+    cv::Mat image1 = (pyramid.imgs.at(0));
+    cv::Mat image2 = (pyramid.imgs.at(stride*1));
+    cv::Mat image3 = (pyramid.imgs.at(stride*2));
+    cv::Mat image4 = (pyramid.imgs.at(stride*3));
+    cv::Mat image5 = (pyramid.imgs.at(stride*4));
+    cv::Mat image6 = (pyramid.imgs.at(stride*5));
+
+    if (image1.empty() || image2.empty() || image3.empty() || image4.empty() || image5.empty()) {
+        std::cerr << "Error: Unable to load images!" << std::endl;
+        exit(1);
+    }
+
+    cv::Size commonSize(400, 400);
+
+    // Resize images to the common size
+    cv::resize(image1, image1, commonSize);
+    cv::resize(image2, image2, commonSize);
+    cv::resize(image3, image3, commonSize);
+    cv::resize(image4, image4, commonSize);
+    cv::resize(image5, image5, commonSize);
+    cv::resize(image6, image6, commonSize);
+
+    // Create a window to display the grid of images
+    cv::namedWindow("Grid of Images", cv::WINDOW_NORMAL);
+
+    // Create a single image to display the grid of images
+    cv::Mat gridImage(commonSize.height * 2 + 10, commonSize.width * 3 + 20, image1.type());
+
+    // Copy images to the gridImage
+    image1.copyTo(gridImage(cv::Rect(0, 0, commonSize.width, commonSize.height)));
+    image2.copyTo(gridImage(cv::Rect(commonSize.width + 5, 0, commonSize.width, commonSize.height)));
+    image3.copyTo(gridImage(cv::Rect(commonSize.width * 2 + 10, 0, commonSize.width, commonSize.height)));
+    image4.copyTo(gridImage(cv::Rect(0, commonSize.height + 5, commonSize.width, commonSize.height)));
+    image5.copyTo(gridImage(cv::Rect(commonSize.width + 5, commonSize.height + 5, commonSize.width, commonSize.height)));
+    image6.copyTo(gridImage(cv::Rect(commonSize.width * 2 + 10, commonSize.height + 5, commonSize.width, commonSize.height)));
+    // Display the grid of images
+    cv::imshow("Grid of Images", gridImage);
+
+    // Wait for a key press
+    cv::waitKey(0);
+}
 Pyramid computeGaussianPyramid(cv::Mat img){
 
     cv::resize(img, img, cv::Size(img.cols*2, img.rows*2),0,0, cv::INTER_LINEAR);
@@ -10,7 +65,7 @@ Pyramid computeGaussianPyramid(cv::Mat img){
     double std_dev = std::sqrt((MIN_SIGMA*MIN_SIGMA) - (INP_SIGMA*INP_SIGMA));
     std_dev /= PX_DST_MIN;
 
-    cv::Mat kernel = create1DGaussKernel(std_dev);
+    //cv::Mat kernel = create1DGaussKernel(std_dev);
     //cv::sepFilter2D(img, img, CV_64F, kernel, kernel);
     cv::GaussianBlur(img, img, cv::Size(), std_dev, std_dev);
 
@@ -315,7 +370,7 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
         return ref_oris;
 }
 
-std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr, double* w_hist) {
+std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr) {
 
     /* At this point the algorithm checks whether the keypoint is distant enough from
      * the image borders. This check has been already performed, in the previous step
@@ -333,7 +388,7 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
     std::vector<double> descriptor{};
 
     //zero out the histogram
-    std::memset(w_hist, 0, N_HISTS*N_HISTS*N_ORI * sizeof(double));
+    double w_hist[N_ORI*N_HISTS*N_HISTS] = {};
     double sine_ori = std::sin(ori);
     double cosine_ori = std::cos(ori);
     for (int m = start_x; m <= end_x; ++m) {
@@ -371,8 +426,8 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
                 if (std::abs(y_hat_j - y_hat) > 2 * lamb_descr / N_HISTS)
                     continue;
 
-                double xy_hat_hist = (1 - N_HISTS / (2 * lamb_descr) * std::abs(x_hat - x_hat_i)) *
-                                     (1 - N_HISTS / (2 * lamb_descr) * std::abs(y_hat - y_hat_j));
+                double xy_hat_hist = (1 - N_HISTS*0.5 / lamb_descr* std::abs(x_hat - x_hat_i)) *
+                                     (1 - N_HISTS*0.5 / lamb_descr * std::abs(y_hat - y_hat_j));
                 for (int k_ = 1; k_ <= N_ORI; ++k_) {
                     double ori_hat_k = 2 * M_PI * (k_ - 1.0) / N_ORI;
                     double ori_diff = std::fmod(ori_hat_k - norm_ori + 2 * M_PI, 2 * M_PI);
@@ -380,6 +435,7 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
 
                     if (std::abs(ori_diff) >= (2 * M_PI) / N_ORI)
                         continue;
+
                     w_hist[(i-1) * (N_HISTS * N_ORI) + (N_ORI * (j-1)) + (k_-1)] +=
                             xy_hat_hist * ori_hist * contribution;
 
@@ -415,7 +471,101 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
 
 
 // The main function fusing all previous algorithms into one pipeline
-keypoints detect(cv::Mat img) {
+keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
+    //cv::Mat img = cv::imread(img_path);
+    cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
+    cv::Mat gray_image;
+    cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
 
-    return keypoints{};
+    gray_image.convertTo(gray_image, CV_64F);
+    cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX, CV_64F);
+
+    Pyramid pyramid = computeGaussianPyramid(gray_image);
+
+    Pyramid DoG = computeDoGPyramid(pyramid);
+    keypoints kp_points = locateExtrema(DoG);
+    drawKeypoints(img, kp_points);
+    Pyramid gradPyr = computeGradientImages(pyramid);
+
+    keypoints kpoints{};
+    //auto *weighted_historgrams = static_cast<double *>(malloc(N_HISTS * N_HISTS * N_ORI * sizeof(double)));
+    for(Keypoint& kp : kp_points) {
+
+        // Gathering orientations for each keypoint
+        std::vector<double> oris = computeReferenceOrientation(kp, gradPyr, LAMB_ORI, LAMB_DESC);
+        /* If a keypoint contains more than one reference orientation,
+         * multiple keypoints will be created at that exact locations,
+         * all with their own reference. For reference see the original
+         * SIFT paper page 13. */
+        for (const double ori: oris) {
+            std::vector<double> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC);
+            kp.descriptor = descriptor;
+            kpoints.push_back(kp);
+        }
+    }
+    return kpoints;
 }
+
+// Matching of keypoints following the procedure in article "Anatomy of the SIFT method"
+matches match_keypoints(const keypoints& keypoints_img1, const keypoints& keypoints_img2, double rThr, int dThr) {
+    matches key_matches{};
+    for(const auto& k1 : keypoints_img1) {
+        double min_dist1 = std::numeric_limits<double>::max();
+        double min_dist2 = std::numeric_limits<double>::max();
+        Keypoint min_k2{};
+        for(const auto& k2 : keypoints_img2) {
+            double dist = computeEuclidenDist(k1, k2);
+            if(dist < min_dist1){
+                min_dist2 = min_dist1;
+                min_dist1 = dist;
+                min_k2 = k2;
+            } else if (min_dist1 <= dist && dist < min_dist2) {
+                min_dist2 = dist;
+            }
+        }
+        if(min_dist1 < rThr * min_dist2 && min_dist1 < dThr) {
+            std::pair<Keypoint, Keypoint> match = {k1, min_k2};
+            key_matches.push_back(match);
+        }
+    }
+    return key_matches;
+}
+
+double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2) {
+
+    double total_dist = 0.;
+    for(int d = 0; d < 128; ++d) {
+        double a =  (k1.descriptor[d] - k2.descriptor[d]);
+        total_dist += a*a;
+    }
+    double dist = std::sqrt(total_dist);
+    return dist;
+}
+
+void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key_matches) {
+    // Resize images to around 600x600
+    cv::Size newSize(600, 600);
+    cv::Mat resizedImg1, resizedImg2;
+    cv::resize(img1, resizedImg1, newSize);
+    cv::resize(img2, resizedImg2, newSize);
+
+    // Concatenate the two resized images horizontally
+    cv::Mat concatImage;
+    cv::hconcat(resizedImg1, resizedImg2, concatImage);
+
+    // Draw circles at matching keypoints
+    for (const auto& match : key_matches) {
+        cv::Point pt1(match.first.x * newSize.width / img1.cols, match.first.y * newSize.height / img1.rows);
+        cv::Point pt2((img1.cols + match.second.x) * newSize.width / img2.cols, match.second.y * newSize.height / img2.rows);
+        cv::line(concatImage, pt1, pt2, cv::Scalar(0, 255, 0), 1);
+
+        // Draw small circles at matched locations
+        cv::circle(concatImage, pt1, 3, cv::Scalar(0, 0, 255), cv::FILLED);
+        cv::circle(concatImage, pt2, 3, cv::Scalar(0, 0, 255), cv::FILLED);
+    }
+
+    // Display the concatenated image with matches
+    cv::imshow("Matches", concatImage);
+    cv::waitKey(0);
+}
+
