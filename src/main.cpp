@@ -36,22 +36,71 @@ void drawPoints(cv::Mat& image, keypoints points) {
 
 int main(int argc, char** argv)
 {
-    cv::Mat img = cv::imread("../IMG_2781.jpg");
+    cv::Mat img = cv::imread("../book_in_scene.jpg");
     cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
     cv::Mat gray_image;
     cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
 
 
+    // Create a SIFT detector
+    /*Ptr<cv::SIFT> detector = SIFT::create();
+
+    // Detect keypoints
+    std::vector<cv::KeyPoint> keypoints;
+    detector->detect(gray_image, keypoints);
+
+    cv::Mat descriptors;
+    detector->compute(img, keypoints, descriptors);
+    // Draw keypoints on the image
+    cv::Mat img_keypoints;
+    drawKeypoints(img, keypoints, img_keypoints, Scalar::all(-1), DrawMatchesFlags::DEFAULT);
+
+    // Print the number of detected keypoints
+    cout << "Number of keypoints detected: " << keypoints.size() << endl;
+
+    // Display the image with keypoints
+    imshow("Keypoints", img_keypoints);
+    waitKey(0);
+
     std::cout << img.size << std::endl;
+     */
     gray_image.convertTo(gray_image, CV_64F);
     cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX, CV_64F);
+
+
 
     Pyramid pyramid = computeGaussianPyramid(gray_image);
 
     Pyramid DoG = computeDoGPyramid(pyramid);
     keypoints k_points = locateExtrema(DoG);
     drawPoints(gray_image, k_points);
+    Pyramid gradPyr = computeGradientImages(pyramid);
 
+    int count = 0;
+    keypoints kpoints{};
+    auto *weighted_historgrams = static_cast<double *>(malloc(N_HISTS * N_HISTS * N_ORI * sizeof(double)));
+    for(Keypoint& kp : k_points) {
+
+        // Gathering orientations for each keypoint
+        std::vector<double> oris = computeReferenceOrientation(kp, gradPyr, LAMB_ORI, LAMB_DESC);
+        /* If a keypoint contains more than one reference orientation,
+         * multiple keypoints will be created at that exact locations,
+         * all with their own reference. For reference see the original
+         * SIFT paper page 13. */
+        for (const double ori: oris) {
+            std::vector<double> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC, weighted_historgrams);
+            kp.descriptor = descriptor;
+            kpoints.push_back(kp);
+        }
+    }
+    free(weighted_historgrams);
+
+    for(auto kp2 : kpoints) {
+        if(kp2.ref_oris.size() > 1) {
+            std::cout << "Still something is wrong" << std::endl;
+        }
+    }
+    std::cout << "Num of keypoints with orientation: " << kpoints.size() << std::endl;
     //keypoints refined_Ks = keypointRefinement(DoG, k_points);
 
     std::cout << k_points.size() << std::endl;

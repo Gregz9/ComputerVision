@@ -34,7 +34,7 @@ struct Pyramid{
   std::vector<cv::Mat> imgs{};
 };
 
-struct KeyPoint {
+struct Keypoint {
     int m;
     int n;
     int octave;
@@ -48,24 +48,24 @@ struct KeyPoint {
     std::vector<double> descriptor;
 };
 
-typedef std::vector<KeyPoint> keypoints;
+typedef std::vector<Keypoint> keypoints;
 
 Pyramid computeGaussianPyramid(cv::Mat img);
 
 Pyramid computeDoGPyramid(const Pyramid& pyramid);
 
-Pyramid computeGradientImages(Pyramid scale_space);
+Pyramid computeGradientImages(const Pyramid& scale_space);
 
 keypoints locateExtrema(const Pyramid& dog, double C_dog = DOG_THR, double C_edge = EDGE_THR);
 
-bool keypointRefinement(const Pyramid& DoG, KeyPoint& k);
+bool keypointRefinement(const Pyramid& DoG, Keypoint& k);
 
-cv::Vec3d quadraticInterpolation(const Pyramid& DoG, KeyPoint& k);
+cv::Vec3d quadraticInterpolation(const Pyramid& DoG, Keypoint& k);
 
-bool checkIfPointOnEdge(const Pyramid& Dog, const KeyPoint& k, double C_edge);
+bool checkIfPointOnEdge(const Pyramid& Dog, const Keypoint& k, double C_edge);
 
-void computeReferenceOrientation(keypoints& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
+std::vector<double> computeReferenceOrientation(Keypoint& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
 
-void buildKeypointDescriptor(KeyPoint& k, const Pyramid& scaleSpaceGrads, double lamb_descr);
+std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr, double* w_hist);
 
 keypoints detect(cv::Mat img);
