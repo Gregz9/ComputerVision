@@ -52,7 +52,7 @@ struct Keypoint {
     double sigma = 0.f; //blur level
     double omega = 0.f; //intensity of the extremum
     //std::vector<double> ref_oris{}; // Reference orientations
-    std::vector<double> descriptor;
+    std::vector<uint8_t> descriptor;
 };
 
 typedef std::vector<Keypoint> keypoints;
@@ -82,7 +82,7 @@ bool checkIfPointOnEdge(const Pyramid& Dog, const Keypoint& k, double C_edge);
 
 std::vector<double> computeReferenceOrientation(Keypoint& k_points, const Pyramid& scaleSpaceGrads, double lamb_ori, double lamb_desc);
 
-std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr, double* w_hist);
+std::vector<uint8_t> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr, double* w_hist);
 
 keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori);
 

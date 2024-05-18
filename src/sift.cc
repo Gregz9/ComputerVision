@@ -132,9 +132,9 @@ Pyramid computeGradientImages(const Pyramid& scale_space) {
     for(int o = 0; o < scale_space.num_oct; ++o) {
         for(int s = 0; s < scale_space.num_scales_per_oct; ++s) {
             cv::Mat curr_img = scale_space.imgs[(o*scale_space.num_scales_per_oct)+s];
-            cv::Mat grad_img(curr_img.cols, curr_img.rows, CV_64FC2);
-            for(int j = 1; j < curr_img.cols-1; ++j) {
-                for(int i = 1; i < curr_img.rows-1; ++i) {
+            cv::Mat grad_img(curr_img.size(), CV_64FC2);
+            for(int i = 1; i < curr_img.rows-1; ++i) {
+                for(int j = 1; j < curr_img.cols-1; ++j) {
                     double gx = 0.5*(curr_img.at<double>(i+1, j) - curr_img.at<double>(i-1, j));
                     double gy = 0.5*(curr_img.at<double>(i, j+1) - curr_img.at<double>(i, j-1));
                     cv::Vec2d grads = {gx, gy};
@@ -186,7 +186,7 @@ keypoints locateExtrema(const Pyramid& dog, double C_dog, double C_edge) {
                         }
                     }
                     if (max || min) {
-                        Keypoint k = {i, j, o, s, -1, -1,-1,-1,{}};
+                        Keypoint k = {i, j, o, s};
                         bool valid = keypointRefinement(dog, k);
                         if(valid) {
                             k_points.push_back(k);
@@ -219,9 +219,9 @@ bool keypointRefinement(const Pyramid& DoG, Keypoint& k) {
                 // Continuous values of sigma and image coordinates. RMB! PX_DIST(o) = PX_DST(o-1)*2**(o-1)
                 double curr_px_dst = PX_DST_MIN*(1 << k.octave);
                 //k.sigma = MIN_SIGMA*std::pow(2, k.scale/NUM_SCL_PER_OCT)*std::pow(2,k.octave);
-                k.sigma = curr_px_dst * MIN_SIGMA * std::pow(2, (k.scale)/NUM_SCL_PER_OCT);
-                k.x = curr_px_dst * (k.n);
-                k.y = curr_px_dst * (k.m);
+                k.sigma = (1 << k.octave) * MIN_SIGMA * std::pow(2, (k.scale + alfas[0])/NUM_SCL_PER_OCT);
+                k.x = curr_px_dst * (k.m+alfas[1]);
+                k.y = curr_px_dst * (k.n+alfas[2]);
                 is_valid=true;
                 break;
             }
@@ -278,7 +278,7 @@ bool checkIfPointOnEdge(const Pyramid& DoG, const Keypoint& k, double C_edge) {
     const cv::Mat& img_curr = DoG.imgs[(k.octave*DoG.num_scales_per_oct)+k.scale];
     h11 = img_curr.at<double>(k.m+1, k.n) + img_curr.at<double>(k.m-1, k.n) - 2*img_curr.at<double>(k.m, k.n);
     h22 = img_curr.at<double>(k.m, k.n+1) + img_curr.at<double>(k.m, k.n-1) - 2*img_curr.at<double>(k.m, k.n);
-    h12 = 0.25f*(img_curr.at<double>(k.m+1, k.n+1) - img_curr.at<double>(k.m+1, k.n-1)
+    h12 = 0.25*(img_curr.at<double>(k.m+1, k.n+1) - img_curr.at<double>(k.m+1, k.n-1)
             - img_curr.at<double>(k.m-1, k.n+1) + img_curr.at<double>(k.m-1, k.n-1));
 
     double trace_H = h11+h22;
@@ -299,26 +299,26 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
          * will compute the reference orientation and descriptor for one keypoint at the time.*/
         std::vector<double> ref_oris{};
         double curr_pix_dst = PX_DST_MIN * std::pow(2, k.octave);
-        double img_width = (curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].rows);
-        double img_height = (curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].cols);
+        double img_width = static_cast<double>(curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)+k.scale].rows);
+        double img_height = static_cast<double>(curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)+k.scale].cols);
         double descr_patch_rad = std::sqrt(2) * lamb_desc * k.sigma;
 
         //Checking whether the keypoint is distant enough from the image borders
-        double min_dist = std::min({k.x, k.y, img_width - k.x, img_height - k.y});
+        //double min_dist = std::min({k.x, k.y, img_width - k.x, img_height - k.y});
 
-        //if (!(descr_patch_rad <= k.x && k.x <= img_width - descr_patch_rad &&
-        //     descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad))
-        if(min_dist <= descr_patch_rad)
+        if (!(descr_patch_rad <= k.x && k.x <= img_width - descr_patch_rad &&
+             descr_patch_rad <= k.y && k.y <= img_height - descr_patch_rad))
+        //if(min_dist <= descr_patch_rad)
             return{};
 
         double gx, gy, grad_norm, exponent;
         int bin_num;
         double local_hist[N_BINS] = {};
         double ori_patch_rad = 3 * lamb_ori * k.sigma;
-        int start_x = static_cast<int>(round((k.x - ori_patch_rad) / curr_pix_dst));
-        int start_y = static_cast<int>(round((k.y - ori_patch_rad) / curr_pix_dst));
-        int end_x = static_cast<int>(round((k.x + ori_patch_rad) / curr_pix_dst));
-        int end_y = static_cast<int>(round((k.y + ori_patch_rad) / curr_pix_dst));
+        int start_x = static_cast<int>(std::round((k.x - ori_patch_rad) / curr_pix_dst));
+        int start_y = static_cast<int>(std::round((k.y - ori_patch_rad) / curr_pix_dst));
+        int end_x = static_cast<int>(std::round((k.x + ori_patch_rad) / curr_pix_dst));
+        int end_y = static_cast<int>(std::round((k.y + ori_patch_rad) / curr_pix_dst));
 
         for (int m = start_x; m <= end_x; ++m) {
             for (int n = start_y; n <= end_y; ++n) {
@@ -335,8 +335,9 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
                 local_hist[bin_num] += exponent * grad_norm;
             }
         }
+
         // Smoothing the histogram using circular convolution
-        double temp_hist[N_BINS];
+        double temp_hist[N_BINS] = {};
         for(int c = 0; c < 6; ++c) {
             for (int i = 0; i < N_BINS; ++i) {
                 temp_hist[i] =
@@ -371,7 +372,7 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
         return ref_oris;
 }
 
-std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr) {
+std::vector<uint8_t> buildKeypointDescriptor(Keypoint& k, const double ori, const Pyramid& scaleSpaceGrads, double lamb_descr) {
 
     /* At this point the algorithm checks whether the keypoint is distant enough from
      * the image borders. This check has been already performed, in the previous step
@@ -386,7 +387,7 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
     int end_x = static_cast<int>(std::round((k.x + (std::sqrt(2) * rad * (N_HISTS + 1.) / N_HISTS)) / k_dist));
     int start_y = static_cast<int>(std::round((k.y - (std::sqrt(2) * rad * (N_HISTS + 1.) / N_HISTS)) / k_dist));
     int end_y = static_cast<int>(std::round((k.y + (std::sqrt(2) * rad * (N_HISTS + 1.) / N_HISTS)) / k_dist));
-    std::vector<double> descriptor{};
+    std::vector<uint8_t> descriptor{};
 
     //zero out the histogram
     double w_hist[N_HISTS*N_HISTS*N_ORI] = {};
@@ -419,16 +420,16 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
         // Updating the nearest histograms
         double x_hat_i, y_hat_j;
         for (int i = 1; i <= N_HISTS; ++i) {
-            x_hat_i = (i - (1 + N_HISTS) / 2.) * (2 * lamb_descr / N_HISTS);
+            x_hat_i = (i - (1 + N_HISTS) / 2.) * 2 * lamb_descr / N_HISTS;
             if (std::abs(x_hat_i - x_hat) > 2 * lamb_descr / N_HISTS)
                 continue;
             for (int j = 1; j <= N_HISTS; ++j) {
-                y_hat_j = (j - (1 + N_HISTS) / 2.) * (2 * lamb_descr / N_HISTS);
+                y_hat_j = (j - (1 + N_HISTS) / 2.) * 2 * lamb_descr / N_HISTS;
                 if (std::abs(y_hat_j - y_hat) > 2 * lamb_descr / N_HISTS)
                     continue;
 
-                double xy_hat_hist = (1 - N_HISTS*0.5 / lamb_descr * std::abs(x_hat - x_hat_i)) *
-                                     (1 - N_HISTS*0.5 / lamb_descr * std::abs(y_hat - y_hat_j));
+                double xy_hat_hist = (1 - N_HISTS*0.5 / lamb_descr * std::abs(x_hat_i-x_hat)) *
+                                     (1 - N_HISTS*0.5 / lamb_descr * std::abs(y_hat_j-y_hat));
 
                 for (int k_ = 1; k_ <= N_ORI; ++k_) {
                     double ori_hat_k = 2 * M_PI * (k_ - 1.0) / N_ORI;
@@ -470,22 +471,22 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
     return descriptor;
 }
 
-
 // The main function fusing all previous algorithms into one pipeline
 keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
-    //cv::Mat img = cv::imread(img_path);
+
     //cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
     cv::Mat gray_image;
     cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
 
     gray_image.convertTo(gray_image, CV_64F);
     cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX, CV_64F);
-
+    gray_image = gray_image.t();
     Pyramid pyramid = computeGaussianPyramid(gray_image);
 
     Pyramid DoG = computeDoGPyramid(pyramid);
     keypoints kp_points = locateExtrema(DoG);
-    drawKeypoints(img, kp_points);
+    cv::Mat img_clone = img.clone();
+    drawKeypoints(img_clone, kp_points);
     Pyramid gradPyr = computeGradientImages(pyramid);
 
     keypoints kpoints{};
@@ -499,8 +500,8 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
          * multiple keypoints will be created at that exact locations,
          * all with their own reference. For reference see the original
          * SIFT paper page 13. */
-        for (const double ori: oris) {
-            std::vector<double> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC);
+        for (double ori: oris) {
+            std::vector<uint8_t> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC);
             kp.descriptor = descriptor;
             kpoints.push_back(kp);
             outFile << ori << "\n";
@@ -514,8 +515,8 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
 matches match_keypoints(const keypoints& keypoints_img1, const keypoints& keypoints_img2, double rThr, int dThr) {
     matches key_matches{};
     for(const auto& k1 : keypoints_img1) {
-        double min_dist1 = std::numeric_limits<double>::max();
-        double min_dist2 = std::numeric_limits<double>::max();
+        double min_dist1 = 1000000.;
+        double min_dist2 = 1000000.;
         Keypoint min_k2{};
         for(const auto& k2 : keypoints_img2) {
             double dist = computeEuclidenDist(k1, k2);
@@ -539,31 +540,39 @@ double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2) {
 
     double total_dist = 0.;
     for(int d = 0; d < 128; ++d) {
-        double a =  (k1.descriptor[d] - k2.descriptor[d]);
+        int a =  (k1.descriptor[d] - k2.descriptor[d]);
         total_dist += a*a;
     }
-    double dist = std::sqrt(total_dist);
-    return dist;
+    return std::sqrt(total_dist);
 }
 
 void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_matches) {
     // Resize images to around 600x600
     cv::Size newSize(700, 700);
-    cv::Mat resizedImg1, resizedImg2;
-    cv::resize(img1, resizedImg1, newSize);
-    cv::resize(img2, resizedImg2, newSize);
+    //cv::Mat resizedImg1, resizedImg2;
+    //cv::resize(img1, resizedImg1, newSize);
+    //cv::resize(img2, resizedImg2, newSize);
 
     // Concatenate the two resized images horizontally
-    cv::Mat concatImage;
-    cv::hconcat(resizedImg1, resizedImg2, concatImage);
+    int maxHeight = std::max(img1.rows, img2.rows);
+
+    // Create a blank image with the maximum height and the sum of widths of the two images
+    cv::Mat concatImage(maxHeight, img1.cols + img2.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+
+    // Copy the first image to the left side of the blank image
+    img1.copyTo(concatImage(cv::Rect(0, 0, img1.cols, img1.rows)));
+
+    // Copy the second image to the right side of the blank image
+    img2.copyTo(concatImage(cv::Rect(img1.cols, 0, img2.cols, img2.rows)));
 
     // Draw circles at matching keypoints
     for (auto& match : key_matches) {
         Keypoint& k1 = match.first;
         Keypoint& k2 = match.second;
 
-        drawLine(concatImage, k1.x, k1.y, k2.x+img1.cols, k2.y);
-
+        // Draw circle around the keypoints
+        cv::circle(concatImage, cv::Point(k1.x, k1.y), 5, cv::Scalar(0, 255, 0), 2);
+        cv::circle(concatImage, cv::Point(k2.x+img1.cols, k2.y), 5, cv::Scalar(0, 255, 0), 2);
     }
 
     // Display the concatenated image with matches
