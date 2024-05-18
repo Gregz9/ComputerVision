@@ -6,8 +6,8 @@ using namespace std;
 
 int main(int argc, char** argv)
 {
-    cv::Mat img = cv::imread("../IMG_2781.jpg");
-    cv::Mat img2 = cv::imread("../IMG_2782.jpg");
+    cv::Mat img = cv::imread("../book_rotated.jpg");
+    cv::Mat img2 = cv::imread("../book_in_scene.jpg");
     keypoints kPoints1 = detect_keypoints(img, LAMB_DESC, LAMB_ORI);
     keypoints kPoints2 = detect_keypoints(img2, LAMB_DESC, LAMB_ORI);
 

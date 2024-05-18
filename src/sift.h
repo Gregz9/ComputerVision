@@ -31,8 +31,8 @@ constexpr double LAMB_ORI = 1.5;
 constexpr double LAMB_DESC = 6.;
 
 // Values for matching
-constexpr double REL_THR = 0.6;
-constexpr int ABS_THR = 300; // 250 to 300
+constexpr double REL_THR = 0.7;
+constexpr int ABS_THR = 350; // 250 to 300
 constexpr double MAX_DIST = std::numeric_limits<double>::infinity();
 
 struct Pyramid{
@@ -47,11 +47,11 @@ struct Keypoint {
     int octave;
     int scale;
 
-    int x = 0;
-    int y = 0;
+    double x = 0;
+    double y = 0;
     double sigma = 0.f; //blur level
     double omega = 0.f; //intensity of the extremum
-    std::vector<double> ref_oris{}; // Reference orientations
+    //std::vector<double> ref_oris{}; // Reference orientations
     std::vector<double> descriptor;
 };
 
@@ -60,9 +60,11 @@ typedef std::vector<std::pair<Keypoint, Keypoint>> matches;
 
 void drawKeypoints(cv::Mat& image, keypoints points);
 
-void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key_matches);
+void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_matches);
 
 void displayPyramid(const Pyramid& pyramid, int stride);
+
+void drawLine(cv::Mat& img, int x1, int y1, int x2, int y2);
 
 Pyramid computeGaussianPyramid(cv::Mat img);
 

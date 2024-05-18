@@ -1,6 +1,6 @@
 #include "sift.h"
 #include "filters.h"
-
+#include <fstream>
 
 void drawKeypoints(cv::Mat& image, keypoints points) {
     // Loop through each point and draw it on the image
@@ -132,9 +132,9 @@ Pyramid computeGradientImages(const Pyramid& scale_space) {
     for(int o = 0; o < scale_space.num_oct; ++o) {
         for(int s = 0; s < scale_space.num_scales_per_oct; ++s) {
             cv::Mat curr_img = scale_space.imgs[(o*scale_space.num_scales_per_oct)+s];
-            cv::Mat grad_img(curr_img.size(), CV_64FC2);
-            for(int i = 1; i < curr_img.rows-1; ++i) {
-                for(int j = 1; j < curr_img.cols-1; ++j) {
+            cv::Mat grad_img(curr_img.cols, curr_img.rows, CV_64FC2);
+            for(int j = 1; j < curr_img.cols-1; ++j) {
+                for(int i = 1; i < curr_img.rows-1; ++i) {
                     double gx = 0.5*(curr_img.at<double>(i+1, j) - curr_img.at<double>(i-1, j));
                     double gy = 0.5*(curr_img.at<double>(i, j+1) - curr_img.at<double>(i, j-1));
                     cv::Vec2d grads = {gx, gy};
@@ -186,7 +186,7 @@ keypoints locateExtrema(const Pyramid& dog, double C_dog, double C_edge) {
                         }
                     }
                     if (max || min) {
-                        Keypoint k = {i, j, o, s};
+                        Keypoint k = {i, j, o, s, -1, -1,-1,-1,{}};
                         bool valid = keypointRefinement(dog, k);
                         if(valid) {
                             k_points.push_back(k);
@@ -298,9 +298,9 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
          * leads to memory inefficiency, i.e. unnecessarily wasted memory. Therefore, This implementation
          * will compute the reference orientation and descriptor for one keypoint at the time.*/
         std::vector<double> ref_oris{};
-        double curr_pix_dst = PX_DST_MIN * pow(2, k.octave);
-        int img_width = static_cast<int>(curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)+k.scale].cols);
-        int img_height = static_cast<int>(curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)+k.scale].rows);
+        double curr_pix_dst = PX_DST_MIN * std::pow(2, k.octave);
+        double img_width = (curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].rows);
+        double img_height = (curr_pix_dst * scaleSpaceGrads.imgs[(k.octave * scaleSpaceGrads.num_scales_per_oct)].cols);
         double descr_patch_rad = std::sqrt(2) * lamb_desc * k.sigma;
 
         //Checking whether the keypoint is distant enough from the image borders
@@ -313,7 +313,7 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
 
         double gx, gy, grad_norm, exponent;
         int bin_num;
-        double local_hist[N_BINS] = {0};
+        double local_hist[N_BINS] = {};
         double ori_patch_rad = 3 * lamb_ori * k.sigma;
         int start_x = static_cast<int>(round((k.x - ori_patch_rad) / curr_pix_dst));
         int start_y = static_cast<int>(round((k.y - ori_patch_rad) / curr_pix_dst));
@@ -349,20 +349,21 @@ std::vector<double> computeReferenceOrientation(Keypoint& k, const Pyramid& scal
 
         // Extraction of reference orientation
         // First step: Find the maximum value in the histogram.
-        double max_hist_val{0};
+        double max_hist_val = 0;
         for(double h : local_hist) {
-            if(h > max_hist_val)
+            if(h > max_hist_val) {
                 max_hist_val = h;
+            }
         }
 
         for(int i = 0; i < N_BINS; ++i) {
             // Still a minor degree of border wrapping
             if(local_hist[i] >= 0.8*max_hist_val) {
-                double prev_element = local_hist[((i - 1) + N_BINS) % N_BINS];
+                double prev_element = local_hist[(i - 1 + N_BINS) % N_BINS];
                 double next_element = local_hist[(i + 1) % N_BINS];
                 if (local_hist[i] < prev_element || local_hist[i] < next_element)
                     continue;
-                double ori_key = 2 * M_PI * (i + 1) / N_BINS + (M_PI / N_BINS) * (prev_element - next_element)/(prev_element - 2 * local_hist[i] +next_element);
+                double ori_key = 2 * M_PI * (i + 1) / N_BINS + M_PI / N_BINS * (prev_element - next_element)/(prev_element - 2 * local_hist[i] +next_element);
                 ref_oris.push_back(ori_key);
 
             }
@@ -388,7 +389,7 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
     std::vector<double> descriptor{};
 
     //zero out the histogram
-    double w_hist[N_ORI*N_HISTS*N_HISTS] = {};
+    double w_hist[N_HISTS*N_HISTS*N_ORI] = {};
     double sine_ori = std::sin(ori);
     double cosine_ori = std::cos(ori);
     for (int m = start_x; m <= end_x; ++m) {
@@ -426,18 +427,18 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
                 if (std::abs(y_hat_j - y_hat) > 2 * lamb_descr / N_HISTS)
                     continue;
 
-                double xy_hat_hist = (1 - N_HISTS*0.5 / lamb_descr* std::abs(x_hat - x_hat_i)) *
+                double xy_hat_hist = (1 - N_HISTS*0.5 / lamb_descr * std::abs(x_hat - x_hat_i)) *
                                      (1 - N_HISTS*0.5 / lamb_descr * std::abs(y_hat - y_hat_j));
+
                 for (int k_ = 1; k_ <= N_ORI; ++k_) {
                     double ori_hat_k = 2 * M_PI * (k_ - 1.0) / N_ORI;
                     double ori_diff = std::fmod(ori_hat_k - norm_ori + 2 * M_PI, 2 * M_PI);
-                    double ori_hist = 1. - N_ORI*0.5 / M_PI * std::abs(ori_diff);
 
                     if (std::abs(ori_diff) >= (2 * M_PI) / N_ORI)
                         continue;
 
-                    w_hist[(i-1) * (N_HISTS * N_ORI) + (N_ORI * (j-1)) + (k_-1)] +=
-                            xy_hat_hist * ori_hist * contribution;
+                    double ori_hist = 1. - N_ORI*0.5 / M_PI * std::abs(ori_diff);
+                    w_hist[(i-1) * (N_HISTS * N_ORI) + (N_ORI * (j-1)) + (k_-1)] += xy_hat_hist * ori_hist * contribution;
 
                     }
                 }
@@ -473,7 +474,7 @@ std::vector<double> buildKeypointDescriptor(Keypoint& k, const double ori, const
 // The main function fusing all previous algorithms into one pipeline
 keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
     //cv::Mat img = cv::imread(img_path);
-    cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
+    //cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
     cv::Mat gray_image;
     cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
 
@@ -488,6 +489,7 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
     Pyramid gradPyr = computeGradientImages(pyramid);
 
     keypoints kpoints{};
+    std::ofstream outFile("../ori_values.txt");
     //auto *weighted_historgrams = static_cast<double *>(malloc(N_HISTS * N_HISTS * N_ORI * sizeof(double)));
     for(Keypoint& kp : kp_points) {
 
@@ -501,8 +503,10 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
             std::vector<double> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC);
             kp.descriptor = descriptor;
             kpoints.push_back(kp);
+            outFile << ori << "\n";
         }
     }
+    outFile.close();
     return kpoints;
 }
 
@@ -542,9 +546,9 @@ double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2) {
     return dist;
 }
 
-void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key_matches) {
+void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_matches) {
     // Resize images to around 600x600
-    cv::Size newSize(600, 600);
+    cv::Size newSize(700, 700);
     cv::Mat resizedImg1, resizedImg2;
     cv::resize(img1, resizedImg1, newSize);
     cv::resize(img2, resizedImg2, newSize);
@@ -554,14 +558,12 @@ void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key
     cv::hconcat(resizedImg1, resizedImg2, concatImage);
 
     // Draw circles at matching keypoints
-    for (const auto& match : key_matches) {
-        cv::Point pt1(match.first.x * newSize.width / img1.cols, match.first.y * newSize.height / img1.rows);
-        cv::Point pt2((img1.cols + match.second.x) * newSize.width / img2.cols, match.second.y * newSize.height / img2.rows);
-        cv::line(concatImage, pt1, pt2, cv::Scalar(0, 255, 0), 1);
+    for (auto& match : key_matches) {
+        Keypoint& k1 = match.first;
+        Keypoint& k2 = match.second;
 
-        // Draw small circles at matched locations
-        cv::circle(concatImage, pt1, 3, cv::Scalar(0, 0, 255), cv::FILLED);
-        cv::circle(concatImage, pt2, 3, cv::Scalar(0, 0, 255), cv::FILLED);
+        drawLine(concatImage, k1.x, k1.y, k2.x+img1.cols, k2.y);
+
     }
 
     // Display the concatenated image with matches
@@ -569,3 +571,25 @@ void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, const matches& key
     cv::waitKey(0);
 }
 
+void drawLine(cv::Mat& img, int x1, int y1, int x2, int y2) {
+    // Ensure x1 <= x2 for consistency
+    if (x2 < x1) {
+        std::swap(x1, x2);
+        std::swap(y1, y2);
+    }
+
+    int dx = x2 - x1;
+    int dy = y2 - y1;
+
+    for (int x = x1; x <= x2; x++) {
+        int y = y1 + dy * (x - x1) / dx;
+
+        if (img.channels() == 3) {
+            // Draw green line on color image
+            img.at<cv::Vec3b>(y, x) = cv::Vec3b(0, 255, 0);
+        } else {
+            // Draw white line on grayscale image
+            img.at<uchar>(y, x) = 255;
+        }
+    }
+}
