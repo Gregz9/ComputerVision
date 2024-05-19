@@ -2,41 +2,60 @@ cmake_minimum_required(VERSION 3.10.0)
 
 project(structure_from_motion)
 
-set(exe_name main)
-
 list(PREPEND CMAKE_MODULE_PATH ${CMAKE_BINARY_DIR})
 
 find_package(OpenCV 4 REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(Catch2 3 REQUIRED)
+find_package(tek5030 CONFIG REQUIRED OPTIONAL_COMPONENTS rs2)
 
 if (NOT OpenCV_LIBS)
   set(OpenCV_LIBS "opencv::opencv")
 endif()
 
-add_executable(${exe_name}
-  main.cpp
-  sift.cc
-  filters.cc
-        Sift.cpp
+add_executable(sift main_sift.cpp
+        sift.cc
+        filters.cc
 )
 
-target_link_libraries(${exe_name}
-  ${OpenCV_LIBS}
-  Eigen3::Eigen
-  )
+add_executable(dual_example dual_example_main.cpp
+)
+
+target_link_libraries(sift PRIVATE
+        ${OpenCV_LIBS}
+        Eigen3::Eigen
+        tek5030::tek5030
+)
+
+if(TARGET tek5030::rs2)
+  message(STATUS "* Support for Intel® RealSense™ ENABLED")
+  target_link_libraries(dual_example tek5030::rs2)
+else()
+  message(STATUS "* Support for Intel® RealSense™ DISABLED because component tek5030::rs2 was not found")
+endif()
 
 # Define two groups of supported compilers.
 set(gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU,LCC>")
 set(msvc_cxx "$<COMPILE_LANG_AND_ID:CXX,MSVC>")
 
-# Set compiler specific flags and definitions.
-target_compile_options(${exe_name} PRIVATE
-  "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wpedantic;-Wshadow;-Wformat=2>>"
-  "$<${msvc_cxx}:$<BUILD_INTERFACE:-W4>>"
-  )
-target_compile_definitions(${exe_name} PUBLIC
-  "$<${msvc_cxx}:-D_USE_MATH_DEFINES>"
-  )
+# Set compiler specific flags and definitions for sift.
+target_compile_options(sift PRIVATE
+        "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wpedantic;-Wshadow;-Wformat=2>>"
+        "$<${msvc_cxx}:$<BUILD_INTERFACE:-W4>>"
+)
+target_compile_definitions(sift PUBLIC
+        "$<${msvc_cxx}:-D_USE_MATH_DEFINES>"
+)
+
+# Set compiler specific flags and definitions for dual_example.
+target_compile_options(dual_example PRIVATE
+        "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wpedantic;-Wshadow;-Wformat=2>>"
+        "$<${msvc_cxx}:$<BUILD_INTERFACE:-W4>>"
+)
+target_compile_definitions(dual_example PUBLIC
+        "$<${msvc_cxx}:-D_USE_MATH_DEFINES>"
+)
+SET_TARGET_PROPERTIES(dual_example PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+SET_TARGET_PROPERTIES(sift PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 #set(CMAKE_CXX_FLAGS "-O3")

@@ -570,6 +570,8 @@ void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_match
         Keypoint& k1 = match.first;
         Keypoint& k2 = match.second;
 
+        std::cout << k1.x << " ," << k1.y << " - " << k2.x << " ," << k2.y << std::endl;
+
         // Draw circle around the keypoints
         cv::circle(concatImage, cv::Point(k1.x, k1.y), 5, cv::Scalar(0, 255, 0), 2);
         cv::circle(concatImage, cv::Point(k2.x+img1.cols, k2.y), 5, cv::Scalar(0, 255, 0), 2);
