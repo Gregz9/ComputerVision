@@ -14,6 +14,9 @@ int main(int argc, char** argv)
     keypoints kPoints2 = detect_keypoints(img2, LAMB_DESC, LAMB_ORI);
 
     matches kMatches = match_keypoints(kPoints1, kPoints2);
+    //simplifiedMatches sim_matches = simplifyMatches(kMatches);
     drawMatchesKey(img, img2, kMatches);
+
+
     return 0;
 }

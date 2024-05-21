@@ -31,7 +31,7 @@ constexpr double LAMB_ORI = 1.5;
 constexpr double LAMB_DESC = 6.;
 
 // Values for matching
-constexpr double REL_THR = 0.7;
+constexpr double REL_THR = 0.75;
 constexpr int ABS_THR = 350; // 250 to 300
 constexpr double MAX_DIST = std::numeric_limits<double>::infinity();
 
@@ -57,6 +57,7 @@ struct Keypoint {
 
 typedef std::vector<Keypoint> keypoints;
 typedef std::vector<std::pair<Keypoint, Keypoint>> matches;
+typedef std::vector<std::pair<cv::Vec2f, cv::Vec2f>> simplifiedMatches;
 
 void drawKeypoints(cv::Mat& image, keypoints points);
 
@@ -89,5 +90,9 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori);
 matches match_keypoints(const keypoints& keypoints_img1, const keypoints& keypoints_img2, double rThr=REL_THR, int dThr=ABS_THR);
 
 double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2);
+
+simplifiedMatches simplifyMatches(const matches& m_points);
+
+std::vector<cv::Vec2f> splitMatches(const simplifiedMatches& sMatches, int idx);
 
 #endif /* MY_SIFT_H */

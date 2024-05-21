@@ -18,7 +18,16 @@ add_executable(sift main_sift.cpp
         filters.cc
 )
 
-add_executable(dual_example dual_example_main.cpp
+add_executable(camera camera.cpp
+        calibrated_camera.h
+        calibrated_opencv_camera.h
+        calibrated_opencv_camera.cpp
+        frame.h
+        frame.cpp
+        intrinsic_calibration.h
+        intrinsic_calibration.cpp
+        epipolar_geo.h
+        epipolar_geo.cpp
 )
 
 target_link_libraries(sift PRIVATE
@@ -29,7 +38,12 @@ target_link_libraries(sift PRIVATE
 
 if(TARGET tek5030::rs2)
   message(STATUS "* Support for Intel® RealSense™ ENABLED")
-  target_link_libraries(dual_example tek5030::rs2)
+  target_link_libraries(camera PRIVATE tek5030::rs2 ${OpenCV_LIBS} tek5030::tek5030 Eigen3::Eigen)
+  target_compile_definitions(camera PUBLIC TEK5030_REALSENSE)
+  target_sources(camera PRIVATE
+          calibrated_realsense_camera.h
+          calibrated_realsense_camera.cpp
+  )
 else()
   message(STATUS "* Support for Intel® RealSense™ DISABLED because component tek5030::rs2 was not found")
 endif()
@@ -48,14 +62,14 @@ target_compile_definitions(sift PUBLIC
 )
 
 # Set compiler specific flags and definitions for dual_example.
-target_compile_options(dual_example PRIVATE
+target_compile_options(camera PRIVATE
         "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall;-Wextra;-Wpedantic;-Wshadow;-Wformat=2>>"
         "$<${msvc_cxx}:$<BUILD_INTERFACE:-W4>>"
 )
-target_compile_definitions(dual_example PUBLIC
+target_compile_definitions(camera PUBLIC
         "$<${msvc_cxx}:-D_USE_MATH_DEFINES>"
 )
-SET_TARGET_PROPERTIES(dual_example PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
+SET_TARGET_PROPERTIES(camera PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 SET_TARGET_PROPERTIES(sift PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/bin)
 
 #set(CMAKE_CXX_FLAGS "-O3")

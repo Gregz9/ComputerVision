@@ -490,7 +490,6 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
     Pyramid gradPyr = computeGradientImages(pyramid);
 
     keypoints kpoints{};
-    std::ofstream outFile("../ori_values.txt");
     //auto *weighted_historgrams = static_cast<double *>(malloc(N_HISTS * N_HISTS * N_ORI * sizeof(double)));
     for(Keypoint& kp : kp_points) {
 
@@ -504,10 +503,8 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
             std::vector<uint8_t> descriptor = buildKeypointDescriptor(kp, ori, gradPyr, LAMB_DESC);
             kp.descriptor = descriptor;
             kpoints.push_back(kp);
-            outFile << ori << "\n";
         }
     }
-    outFile.close();
     return kpoints;
 }
 
@@ -580,6 +577,34 @@ void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_match
     // Display the concatenated image with matches
     cv::imshow("Matches", concatImage);
     cv::waitKey(0);
+}
+
+simplifiedMatches simplifyMatches(const matches& m_points) {
+
+    std::vector<std::pair<cv::Vec2f, cv::Vec2f>> sim_matches(m_points.size());
+    for(int i = 0; i < static_cast<int>(m_points.size()); ++i) {
+        sim_matches[i] = {{static_cast<float>(m_points[i].first.x), static_cast<float>(m_points[i].first.y)},
+                          {static_cast<float>(m_points[i].second.x), static_cast<float>(m_points[i].second.y)}};
+    }
+
+    return sim_matches;
+}
+
+std::vector<cv::Vec2f> splitMatches(const simplifiedMatches& sMatches, int idx) {
+
+    std::vector<cv::Vec2f> img_keypoints(sMatches.size());
+    if(idx == 0) {
+        for(int i = 0; i < static_cast<int>(sMatches.size()); ++i) {
+            img_keypoints[i] = {sMatches[i].first[0], sMatches[i].first[1]};
+        }
+    }
+    else if(idx == 1) {
+        for(int i = 0; i < static_cast<int>(sMatches.size()); ++i) {
+            img_keypoints[i] = {sMatches[i].second[0], sMatches[i].second[1]};
+        }
+    }
+
+    return img_keypoints;
 }
 
 void drawLine(cv::Mat& img, int x1, int y1, int x2, int y2) {
