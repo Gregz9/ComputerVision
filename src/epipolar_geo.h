@@ -16,7 +16,7 @@ cv::Mat Ransac();
 
 cv::Mat estimateEssentialMatrix();
 
-cv::Matx33f standarizeCoords(const std::vector<cv::Vec2f> points);
+Eigen::Matrix<float, 3,3> standarizeCoords(const std::vector<Eigen::Vector2f>& points);
 
 
 
