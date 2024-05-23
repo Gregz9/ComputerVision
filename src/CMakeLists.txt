@@ -16,6 +16,8 @@ endif()
 add_executable(sift main_sift.cpp
         sift.cc
         filters.cc
+        epipolar_geo.h
+        epipolar_geo.cpp
 )
 
 add_executable(camera camera.cpp

@@ -4,19 +4,21 @@
 #include <opencv2/opencv.hpp>
 #include <opencv2/core.hpp>
 #include <opencv2/core/mat.hpp>
-#include <opencv2/core/eigen.hpp>
 #include <Eigen/Dense>
 #include <vector>
 
 // 8-points version of the algorithm.
-cv::Mat estimateFundamentalMatrix8Pts(const std::vector<cv::Vec2d> x1, const std::vector<cv::Vec2d> x2);
+Eigen::Matrix3f estimateFundamentalMatrix8Pts(const std::vector<cv::Vec2f>& x1, const std::vector<cv::Vec2f>& x2);
+
+// 7-points version fo the algorithm
+Eigen::Matrix3f estimateFundamentalMatrix7Pts(const std::vector<cv::Vec2f>& x1, const std::vector<cv::Vec2f>& x2);
 
 //generic RANSAC
 cv::Mat Ransac();
 
 cv::Mat estimateEssentialMatrix();
 
-Eigen::Matrix<float, 3,3> standarizeCoords(const std::vector<Eigen::Vector2f>& points);
+Eigen::Matrix3f standarizeCoords(const std::vector<Eigen::Vector2f>& points);
 
 
 

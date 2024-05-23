@@ -1,6 +1,7 @@
 #include "opencv2/core.hpp"
 #include "opencv2/imgcodecs.hpp"
 #include "sift.h"
+#include "epipolar_geo.h"
 using namespace cv;
 using namespace std;
 
@@ -13,8 +14,11 @@ int main(int argc, char** argv) {
     keypoints kPoints2 = detect_keypoints(img2, LAMB_DESC, LAMB_ORI);
 
     matches kMatches = match_keypoints(kPoints1, kPoints2);
-    //simplifiedMatches sim_matches = simplifyMatches(kMatches);
+    simplifiedMatches sim_matches = simplifyMatches(kMatches);
+    std::vector<cv::Vec2f> keypoints1 = splitMatches(sim_matches, 0);
+    std::vector<cv::Vec2f> keypoints2 = splitMatches(sim_matches, 1);
     drawMatchesKey(img, img2, kMatches);
+
 
     return 0;
 }
