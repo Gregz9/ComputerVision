@@ -476,8 +476,10 @@ keypoints detect_keypoints(cv::Mat img, double lamd_descr, double lamb_ori) {
 
     //cv::resize(img,img, cv::Size(700,700), 0,0,cv::INTER_CUBIC);
     cv::Mat gray_image;
-    cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
-
+    if(img.channels() > 1)
+        cv::cvtColor(img, gray_image, cv::COLOR_BGR2GRAY);
+    else
+        gray_image = img;
     gray_image.convertTo(gray_image, CV_64F);
     cv::normalize(gray_image, gray_image, 0, 1, cv::NORM_MINMAX, CV_64F);
     gray_image = gray_image.t();
@@ -544,17 +546,22 @@ double computeEuclidenDist(const Keypoint& k1, const Keypoint& k2) {
 }
 
 void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_matches) {
-    // Resize images to around 600x600
-    cv::Size newSize(700, 700);
-    //cv::Mat resizedImg1, resizedImg2;
-    //cv::resize(img1, resizedImg1, newSize);
-    //cv::resize(img2, resizedImg2, newSize);
+    // Determine the number of channels in the images
+    int num_channels = img1.channels();
 
-    // Concatenate the two resized images horizontally
-    int maxHeight = std::max(img1.rows, img2.rows);
-
-    // Create a blank image with the maximum height and the sum of widths of the two images
-    cv::Mat concatImage(maxHeight, img1.cols + img2.cols, CV_8UC3, cv::Scalar(0, 0, 0));
+    // Create a blank image with the appropriate number of channels
+    cv::Mat concatImage;
+    if (num_channels == 1) {
+        // Grayscale images
+        concatImage = cv::Mat::zeros(std::max(img1.rows, img2.rows), img1.cols + img2.cols, CV_8UC1);
+    } else if (num_channels == 3) {
+        // Color images
+        concatImage = cv::Mat::zeros(std::max(img1.rows, img2.rows), img1.cols + img2.cols, CV_8UC3);
+    } else {
+        // Unsupported number of channels
+        std::cerr << "Error: Unsupported number of channels\n";
+        return;
+    }
 
     // Copy the first image to the left side of the blank image
     img1.copyTo(concatImage(cv::Rect(0, 0, img1.cols, img1.rows)));
@@ -567,11 +574,9 @@ void drawMatchesKey(const cv::Mat& img1, const cv::Mat& img2, matches& key_match
         Keypoint& k1 = match.first;
         Keypoint& k2 = match.second;
 
-        std::cout << k1.x << " ," << k1.y << " - " << k2.x << " ," << k2.y << std::endl;
-
         // Draw circle around the keypoints
         cv::circle(concatImage, cv::Point(k1.x, k1.y), 5, cv::Scalar(0, 255, 0), 2);
-        cv::circle(concatImage, cv::Point(k2.x+img1.cols, k2.y), 5, cv::Scalar(0, 255, 0), 2);
+        cv::circle(concatImage, cv::Point(k2.x + img1.cols, k2.y), 5, cv::Scalar(0, 255, 0), 2);
     }
 
     // Display the concatenated image with matches

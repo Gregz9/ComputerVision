@@ -26,6 +26,8 @@ add_executable(camera camera.cpp
         calibrated_opencv_camera.cpp
         frame.h
         frame.cpp
+        sift.cc
+        filters.cc
         intrinsic_calibration.h
         intrinsic_calibration.cpp
         epipolar_geo.h
