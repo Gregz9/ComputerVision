@@ -6,6 +6,10 @@ One of the more interesting problems in the field of computer vision is the task
 
 ![blob_image](blob.png)
 
+Once the features have been detected, they need to be described in a way that allows matching of said features across images.In other words, using the created description we wish to find features which are present in both images, also known as *correspondences*, and use this to relate the images. The final result of such a mathcing can look like this: 
+
+![sift_match_example](sift_example.jpg)
+
 ### Method
 
 ### Results
